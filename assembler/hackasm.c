@@ -3,11 +3,13 @@
 #define MAX_LINE_LEN 128
 #define LINE_CHUNK 128
 #define PROGRAM_BUF_CHUNK (MAX_LINE_LEN * LINE_CHUNK)
+#define INSTR_BITS 16
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <ctype.h>
 
 // Contains information about the loaded program such as contents and size.
@@ -21,10 +23,10 @@ typedef struct Program
 } Program;
 void program_init(Program *program)
 {
-    program->binary = NULL;
-    program->bin_size = 0;
     program->assembly = calloc(PROGRAM_BUF_CHUNK, sizeof(char));
     program->size = PROGRAM_BUF_CHUNK * sizeof(char);
+    program->binary = calloc(program->size * (INSTR_BITS + 2), sizeof(char));
+    program->bin_size = program->size * (INSTR_BITS + 2);
     program->lines = 0;
 }
 
@@ -91,6 +93,8 @@ bool first_pass(char *filename, Program *program)
             {
                 program->size *= 2;
                 program->assembly = realloc(program->assembly, program->size);
+                program->bin_size *= 2;
+                program->binary = realloc(program->binary, program->bin_size);
             }
         }
     }
@@ -109,7 +113,26 @@ void second_pass(Program *program)
     // Concat binary to out string + \n
     for (int i = 0; i < program->lines; i++)
     {
-        printf("%s\n", program->assembly + (i * MAX_LINE_LEN));
+        // Get the line of assembly code
+        char line[MAX_LINE_LEN];
+        strncpy(line, program->assembly + (i * MAX_LINE_LEN), MAX_LINE_LEN);
+
+        char instruction[INSTR_BITS + 2] = "0000000000000000\n";
+
+        // Handle A instructions (which all begin with '@')
+        if (line[0] == '@')
+        {
+            uint16_t addr = atoi(line + 1);
+            for (int b = 0; b < (INSTR_BITS - 1); b++)
+            {
+                /* Get the least significant bit of address, convert it to
+                ASCII, and store it in respective instruction bit. */
+                instruction[(INSTR_BITS - 1) - b] = ((addr >> b) & 0x0001) + '0';
+            }
+        }
+
+        // Add the binary instruction to the overall binary program.
+        strncat(program->binary, instruction, strlen(instruction) + 1);
     }
 }
 
@@ -120,7 +143,7 @@ bool gen_hack(char *filename, Program *program)
     FILE *fp = fopen(filename, "w");
     if (fp != NULL)
     {
-        fwrite(program->binary, program->bin_size, 1, fp);
+        fwrite(program->binary, strlen(program->binary), 1, fp);
     }
     else
     {
@@ -168,10 +191,10 @@ int main(int argc, char **argv)
     second_pass(&program);
 
     // Write binary to .hack file
-    /*if (!gen_hack("out.hack", &program))
+    if (!gen_hack("out.hack", &program))
     {
         clean_exit(&program, 1);
-    }*/
+    }
 
     clean_exit(&program, 0);
 }

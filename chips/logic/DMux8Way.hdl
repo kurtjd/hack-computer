@@ -1,0 +1,43 @@
+/**
+ * 8-way demultiplexor:
+ * {a, b, c, d, e, f, g, h} = {in, 0, 0, 0, 0, 0, 0, 0} if sel == 000
+ *                            {0, in, 0, 0, 0, 0, 0, 0} if sel == 001
+ *                            etc.
+ *                            {0, 0, 0, 0, 0, 0, 0, in} if sel == 111
+ */
+
+CHIP DMux8Way {
+    IN in, sel[3];
+    OUT a, b, c, d, e, f, g, h;
+
+    PARTS:
+    Not(in=sel[0], out=notsel0);
+    Not(in=sel[1], out=notsel1);
+    Not(in=sel[2], out=notsel2);
+
+    And(a=sel[0], b=sel[1], out=and01);
+    And(a=sel[0], b=sel[2], out=and02);
+    And(a=sel[1], b=sel[2], out=and12);
+
+    And(a=notsel0, b=notsel1, out=nand01);
+    And(a=notsel0, b=notsel2, out=nand02);
+    And(a=notsel1, b=notsel2, out=nand12);
+
+    And(a=nand01, b=notsel2, out=asig);
+    And(a=nand12, b=sel[0], out=bsig);
+    And(a=nand02, b=sel[1], out=csig);
+    And(a=and01, b=notsel2, out=dsig);
+    And(a=nand01, b=sel[2], out=esig);
+    And(a=and02, b=notsel1, out=fsig);
+    And(a=and12, b=notsel0, out=gsig);
+    And(a=and12, b=sel[0], out=hsig);
+
+    And(a=in, b=asig, out=a);
+    And(a=in, b=bsig, out=b);
+    And(a=in, b=csig, out=c);
+    And(a=in, b=dsig, out=d);
+    And(a=in, b=esig, out=e);
+    And(a=in, b=fsig, out=f);
+    And(a=in, b=gsig, out=g);
+    And(a=in, b=hsig, out=h);
+}

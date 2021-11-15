@@ -1,0 +1,69 @@
+/**
+ * The Hack CPU (Central Processing unit), consisting of an ALU,
+ * two registers named A and D, and a program counter named PC.
+ * The CPU is designed to fetch and execute instructions written in 
+ * the Hack machine language. In particular, functions as follows:
+ * Executes the inputted instruction according to the Hack machine 
+ * language specification. The D and A in the language specification
+ * refer to CPU-resident registers, while M refers to the external
+ * memory location addressed by A, i.e. to Memory[A]. The inM input 
+ * holds the value of this location. If the current instruction needs 
+ * to write a value to M, the value is placed in outM, the address 
+ * of the target location is placed in the addressM output, and the 
+ * writeM control bit is asserted. (When writeM==0, any value may 
+ * appear in outM). The outM and writeM outputs are combinational: 
+ * they are affected instantaneously by the execution of the current 
+ * instruction. The addressM and pc outputs are clocked: although they 
+ * are affected by the execution of the current instruction, they commit 
+ * to their new values only in the next time step. If reset==1 then the 
+ * CPU jumps to address 0 (i.e. pc is set to 0 in next time step) rather 
+ * than to the address resulting from executing the current instruction. 
+ */
+
+CHIP CPU {
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+    // Select either the instruction or ALU output
+    Mux16(a=instruction, b=aluout, sel=instruction[15], out=addr);
+
+    // Select either A or M as ALU operand
+    And(a=instruction[12], b=instruction[15], out=selm);
+    Mux16(a=aregout, b=inM, sel=selm, out=memaddr);
+
+    // Load A if this is A instr or C instr dest is A
+    Not(in=instruction[15], out=ainstr);
+    Or(a=instruction[5], b=ainstr, out=loada);
+    ARegister(in=addr, load=loada, out=aregout, out[0..14]=addressM);
+
+    // Load D if C instr and dest is D
+    And(a=instruction[4], b=instruction[15], out=loadd);
+    DRegister(in=aluout, load=loadd, out=dregout);
+
+    // Feed ALU with proper values
+    ALU(x=dregout, y=memaddr, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=aluout, out=outM, zr=aluzr, ng=alung);
+
+    // Write to M if C instr and dest is M
+    And(a=instruction[3], b=instruction[15], out=writeM);
+
+    // Jump if C instr and ALU out satisfies condition, otherwise increment
+    Or(a=aluzr, b=alung, out=outpos0);
+    Not(in=outpos0, out=outpos);
+    And(a=instruction[0], b=outpos, out=jmp1);
+    And(a=instruction[1], b=aluzr, out=jmp2);
+    And(a=instruction[2], b=alung, out=jmp3);
+    Or(a=jmp1, b=jmp2, out=jmp1jmp2);
+    Or(a=jmp1jmp2, b=jmp3, out=jump);
+    And(a=jump, b=instruction[15], out=trujmp);
+    Not(in=trujmp, out=inc);
+    PC(in=aregout, load=trujmp, reset=reset, inc=inc, out[0..14]=pc);
+}

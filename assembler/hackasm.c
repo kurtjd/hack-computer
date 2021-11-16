@@ -1,12 +1,3 @@
-// This is an assembler for the Hack computer.
-/* TODO:
--Create symbol struct (name, value)
--Create SymbolTable struct (dynamic array of symbol structs)
--SymbolTable keeps count of unique variables found
--Convert variable to symbol by check if num after @
--Convert label by check 0th char if ( and get in between
-*/
-
 #define MAX_LINE_LEN 128
 #define LINE_CHUNK 128
 #define PROGRAM_BUF_CHUNK (MAX_LINE_LEN * LINE_CHUNK)
@@ -114,6 +105,17 @@ void symboltable_init(SymbolTable *table)
     symboltable_add(table, symbol, false);
 }
 
+// Print contents of symbol table.
+void symboltable_print(SymbolTable *table)
+{
+    printf("Name : Value\n");
+    printf("------------\n");
+    for (int i = 0; i < table->count; i++)
+    {
+        printf("%s : %s\n", table->symbols[i].name, table->symbols[i].value);
+    }
+}
+
 // Contains information about the loaded program such as contents and size.
 typedef struct Program
 {
@@ -188,8 +190,8 @@ void trim_comments(char *str)
 }
 
 /* Performs the first pass which includes removing whitespace and comments,
-and building the symbol table. */
-bool first_pass(char *filename, Program *program)
+and adding labels to the symbol table. */
+bool first_pass(char *filename, Program *program, SymbolTable *symtbl)
 {
     // Open and read .asm file line-by-line
     char line[MAX_LINE_LEN];
@@ -210,11 +212,24 @@ bool first_pass(char *filename, Program *program)
         size_t line_len = strlen(line);
         if (line_len > 0)
         {
-            // Check for symbol in line, add to symbol table
-            // If label symbol, value is next line number.
-            // If variable symbol, value is 16 + variables found so far
+            Symbol symbol = {"", ""};
 
-            // Add line to buffer.
+            /* If a new label is encountered, add it to the symbol table but
+            strip it from the program. */
+            if (line[0] == '(')
+            {
+                strncpy(symbol.name, line + 1, line_len - 2);
+                symboltable_get(symtbl, symbol.name, symbol.value);
+                if (symbol.value[0] == '\0')
+                {
+                    sprintf(symbol.value, "%d", program->lines);
+                    symboltable_add(symtbl, symbol, false);
+                }
+
+                continue;
+            }
+
+            // Add line to program buffer.
             program_add_line(program, line, line_len);
         }
     }
@@ -229,13 +244,10 @@ bool first_pass(char *filename, Program *program)
 
 /* Performs the second pass which includes converting symbols into numbers and
 instructions into binary. */
-void second_pass(Program *program)
+void second_pass(Program *program, SymbolTable *symtbl)
 {
     for (int i = 0; i < program->lines; i++)
     {
-        // Replace each symbol in line with value in table
-        // TODO
-
         // Get the line of assembly code
         char line[MAX_LINE_LEN];
         strncpy(line, program->assembly + (i * MAX_LINE_LEN), MAX_LINE_LEN);
@@ -245,11 +257,32 @@ void second_pass(Program *program)
         // Handle A instruction (which all begin with '@')
         if (line[0] == '@')
         {
+            /* If address doesn't begin with number, we know it's a symbol 
+            so look it up in symbol table. */
+            if (!isdigit(line[1]))
+            {
+                Symbol symbol = {"", ""};
+                strncpy(symbol.name, line + 1, strlen(line));
+                symboltable_get(symtbl, symbol.name, symbol.value);
+
+                /* If the symbol does not exist yet, we know it must be a
+                variable since labels were added to the table in the first pass.
+                Thus, we add it to the table with an appropriate address. */
+                if (symbol.value[0] == '\0')
+                {
+                    sprintf(symbol.value, "%d", VAR_START_ADDR + symtbl->variables);
+                    symboltable_add(symtbl, symbol, true);
+                }
+
+                // Replace the line with the value of the symbol.
+                strncpy(line + 1, symbol.value, strlen(symbol.value) + 1);
+            }
+
+            /* Get the least significant bit of address, convert it to
+            ASCII, and store it in respective instruction bit. */
             uint16_t addr = atoi(line + 1);
             for (int b = 0; b < (INSTR_BITS - 1); b++)
             {
-                /* Get the least significant bit of address, convert it to
-                ASCII, and store it in respective instruction bit. */
                 instruction[(INSTR_BITS - 1) - b] = ((addr >> b) & 0x0001) + '0';
             }
         }
@@ -541,13 +574,13 @@ int main(int argc, char **argv)
     symboltable_init(&symtbl);
 
     // Perform first pass
-    if (!first_pass(argv[1], &program))
+    if (!first_pass(argv[1], &program, &symtbl))
     {
         clean_exit(&program, 1);
     }
 
     // Perform second pass
-    second_pass(&program);
+    second_pass(&program, &symtbl);
 
     // Write binary to .hack file
     if (!gen_hack("out.hack", &program))

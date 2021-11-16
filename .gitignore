@@ -1,4 +1,5 @@
 daedalus
+.vscode
 assembler/programs
 assembler/hackasm
 assembler/out.hack

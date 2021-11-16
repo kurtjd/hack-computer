@@ -4,6 +4,7 @@
  * instruction per line.
  * Disassembler reads an ASCII .hack file and generates a .asm file with one
  * instruction per line.
+ * 
  * Written by Kurtis Dinelle for the nand2tetris course.
  */
 
@@ -580,12 +581,273 @@ bool gen_hack(char *filename, Program *program)
     return true;
 }
 
+bool disassemble(char *filename)
+{
+    // Create out.asm file to start writing instructions to
+    remove("out.asm");
+    FILE *out = fopen("out.asm", "a");
+    if (out == NULL)
+    {
+        fprintf(stderr, "Unable to open out.asm\n");
+        return false;
+    }
+
+    // Open and read .hack file line-by-line
+    char line[MAX_LINE_LEN];
+    FILE *fp = fopen(filename, "r");
+    if (fp == NULL)
+    {
+        fprintf(stderr, "Unable to open %s\n", filename);
+        return false;
+    }
+
+    while (fgets(line, MAX_LINE_LEN, fp) != NULL)
+    {
+        char instruction[MAX_LINE_LEN] = "";
+
+        if (line[0] == '0')
+        {
+            // Begin instruction with the @ symbol
+            strncpy(instruction, "@", 2);
+
+            // Convert rest of the line which is in binary to decimal
+            char *bit = line;
+            int dec = 0;
+            int place = 16384; // 15th bit's place value
+            while (*bit++)
+            {
+                if (bit[0] == '1')
+                {
+                    dec += place;
+                }
+
+                place /= 2;
+            }
+
+            // Add the decimal number to instruction
+            sprintf(instruction + 1, "%d", dec);
+        }
+        else
+        {
+            char comp[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+            strncpy(comp, line + 3, 7);
+
+            char dest[4] = {0, 0, 0, 0};
+            strncpy(dest, line + 10, 3);
+
+            char jump[4] = {0, 0, 0, 0};
+            strncpy(jump, line + 13, 3);
+
+            // Get dest
+            if (strcmp(dest, "001") == 0)
+            {
+                strcat(instruction, "M");
+            }
+            else if (strcmp(dest, "010") == 0)
+            {
+                strcat(instruction, "D");
+            }
+            else if (strcmp(dest, "011") == 0)
+            {
+                strcat(instruction, "MD");
+            }
+            else if (strcmp(dest, "100") == 0)
+            {
+                strcat(instruction, "A");
+            }
+            else if (strcmp(dest, "101") == 0)
+            {
+                strcat(instruction, "AM");
+            }
+            else if (strcmp(dest, "110") == 0)
+            {
+                strcat(instruction, "AD");
+            }
+            else if (strcmp(dest, "111") == 0)
+            {
+                strcat(instruction, "AMD");
+            }
+            if (!strcmp(dest, "000") == 0)
+            {
+                strcat(instruction, "=");
+            }
+
+            // Get comp
+            if (strcmp(comp, "0101010") == 0)
+            {
+                strcat(instruction, "0");
+            }
+            else if (strcmp(comp, "0111111") == 0)
+            {
+                strcat(instruction, "1");
+            }
+            else if (strcmp(comp, "0111010") == 0)
+            {
+                strcat(instruction, "-1");
+            }
+            else if (strcmp(comp, "0001100") == 0)
+            {
+                strcat(instruction, "D");
+            }
+            else if (strcmp(comp, "0110000") == 0)
+            {
+                strcat(instruction, "A");
+            }
+            else if (strcmp(comp, "0001101") == 0)
+            {
+                strcat(instruction, "!D");
+            }
+            else if (strcmp(comp, "0110001") == 0)
+            {
+                strcat(instruction, "!A");
+            }
+            else if (strcmp(comp, "0001111") == 0)
+            {
+                strcat(instruction, "-D");
+            }
+            else if (strcmp(comp, "0110011") == 0)
+            {
+                strcat(instruction, "-A");
+            }
+            else if (strcmp(comp, "0011111") == 0)
+            {
+                strcat(instruction, "D+1");
+            }
+            else if (strcmp(comp, "0110111") == 0)
+            {
+                strcat(instruction, "A+1");
+            }
+            else if (strcmp(comp, "0001110") == 0)
+            {
+                strcat(instruction, "D-1");
+            }
+            else if (strcmp(comp, "0110010") == 0)
+            {
+                strcat(instruction, "A-1");
+            }
+            else if (strcmp(comp, "0000010") == 0)
+            {
+                strcat(instruction, "D+A");
+            }
+            else if (strcmp(comp, "0010011") == 0)
+            {
+                strcat(instruction, "D-A");
+            }
+            else if (strcmp(comp, "000111") == 0)
+            {
+                strcat(instruction, "A-D");
+            }
+            else if (strcmp(comp, "0000000") == 0)
+            {
+                strcat(instruction, "D&A");
+            }
+            else if (strcmp(comp, "0010101") == 0)
+            {
+                strcat(instruction, "D|A");
+            }
+            else if (strcmp(comp, "1110000") == 0)
+            {
+                strcat(instruction, "M");
+            }
+            else if (strcmp(comp, "1110001") == 0)
+            {
+                strcat(instruction, "!M");
+            }
+            else if (strcmp(comp, "1110011") == 0)
+            {
+                strcat(instruction, "-M");
+            }
+            else if (strcmp(comp, "1110111") == 0)
+            {
+                strcat(instruction, "M+1");
+            }
+            else if (strcmp(comp, "1110010") == 0)
+            {
+                strcat(instruction, "M-1");
+            }
+            else if (strcmp(comp, "1000010") == 0)
+            {
+                strcat(instruction, "D+M");
+            }
+            else if (strcmp(comp, "1010011") == 0)
+            {
+                strcat(instruction, "D-M");
+            }
+            else if (strcmp(comp, "1000111") == 0)
+            {
+                strcat(instruction, "M-D");
+            }
+            else if (strcmp(comp, "1000000") == 0)
+            {
+                strcat(instruction, "D&M");
+            }
+            else if (strcmp(comp, "1010101") == 0)
+            {
+                strcat(instruction, "D|M");
+            }
+
+            // Get jump
+            if (!strcmp(jump, "000") == 0)
+            {
+                strcat(instruction, ";");
+            }
+            if (strcmp(jump, "001") == 0)
+            {
+                strcat(instruction, "JGT");
+            }
+            else if (strcmp(jump, "010") == 0)
+            {
+                strcat(instruction, "JEQ");
+            }
+            else if (strcmp(jump, "011") == 0)
+            {
+                strcat(instruction, "JGE");
+            }
+            else if (strcmp(jump, "100") == 0)
+            {
+                strcat(instruction, "JLT");
+            }
+            else if (strcmp(jump, "101") == 0)
+            {
+                strcat(instruction, "JNE");
+            }
+            else if (strcmp(jump, "110") == 0)
+            {
+                strcat(instruction, "JLE");
+            }
+            else if (strcmp(jump, "111") == 0)
+            {
+                strcat(instruction, "JMP");
+            }
+        }
+
+        // Put each instruction on its own line
+        strcat(instruction, "\n");
+        fwrite(instruction, strlen(instruction), 1, out);
+    }
+
+    fclose(fp);
+    fclose(out);
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2)
     {
-        fprintf(stderr, "Usage: ./hackasm <path-to-file>\n");
+        fprintf(stderr, "Usage: ./hackasm [-d] <path-to-file>\n");
         return 1;
+    }
+    else if (argc == 3)
+    {
+        if (disassemble(argv[2]))
+        {
+            return 0;
+        }
+        else
+        {
+            return 1;
+        }
     }
 
     // Initialize container which holds the contents of the assembly file.

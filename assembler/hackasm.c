@@ -1,3 +1,12 @@
+/* Hack Computer Assembler/Disassembler
+ *
+ * Assembler reads a .asm file and generates a .hack file in ASCII with one
+ * instruction per line.
+ * Disassembler reads an ASCII .hack file and generates a .asm file with one
+ * instruction per line.
+ * Written by Kurtis Dinelle for the nand2tetris course.
+ */
+
 #define MAX_LINE_LEN 128
 #define LINE_CHUNK 128
 #define PROGRAM_BUF_CHUNK (MAX_LINE_LEN * LINE_CHUNK)
@@ -39,15 +48,23 @@ typedef struct SymbolTable
 } SymbolTable;
 
 // Adds a symbol to the table.
-void symboltable_add(SymbolTable *table, Symbol symbol, bool is_var)
+bool symboltable_add(SymbolTable *table, Symbol symbol, bool is_var)
 {
     table->symbols[table->count] = symbol;
     table->count++;
+
+    if (table->count >= MAX_SYMBOLS)
+    {
+        fprintf(stderr, "Programs can only contain a max of %d symbols.\n", MAX_SYMBOLS);
+        return false;
+    }
 
     if (is_var)
     {
         table->variables++;
     }
+
+    return true;
 }
 
 // Retrieves the value of a symbol if it exists.
@@ -214,7 +231,7 @@ bool first_pass(char *filename, Program *program, SymbolTable *symtbl)
         {
             Symbol symbol = {"", ""};
 
-            /* If a new label is encountered, add it to the symbol table but
+            /* If a label is encountered, add it to the symbol table if new and
             strip it from the program. */
             if (line[0] == '(')
             {
@@ -223,7 +240,10 @@ bool first_pass(char *filename, Program *program, SymbolTable *symtbl)
                 if (symbol.value[0] == '\0')
                 {
                     sprintf(symbol.value, "%d", program->lines);
-                    symboltable_add(symtbl, symbol, false);
+                    if (!symboltable_add(symtbl, symbol, false))
+                    {
+                        clean_exit(program, 1);
+                    }
                 }
 
                 continue;
@@ -271,7 +291,10 @@ void second_pass(Program *program, SymbolTable *symtbl)
                 if (symbol.value[0] == '\0')
                 {
                     sprintf(symbol.value, "%d", VAR_START_ADDR + symtbl->variables);
-                    symboltable_add(symtbl, symbol, true);
+                    if (!symboltable_add(symtbl, symbol, true))
+                    {
+                        clean_exit(program, 1);
+                    }
                 }
 
                 // Replace the line with the value of the symbol.

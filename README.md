@@ -16,3 +16,6 @@ From there, one can load binary .hack files into the instruction ROM and begin e
 
 ## Disclaimer
 This repo simply exists to track and showcase my work on this project. If you are also taking the course, I highly recommend not looking at my implementations if you want the fun of solving things yourself. I also do not claim to have the best designed chips so this repo should not be used as a guide for best practices in hardware design.
+
+## Assembler
+See [Assembler README](assembler/README.md)

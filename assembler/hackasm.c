@@ -1,9 +1,19 @@
 // This is an assembler for the Hack computer.
+/* TODO:
+-Create symbol struct (name, value)
+-Create SymbolTable struct (dynamic array of symbol structs)
+-SymbolTable keeps count of unique variables found
+-Convert variable to symbol by check if num after @
+-Convert label by check 0th char if ( and get in between
+*/
 
 #define MAX_LINE_LEN 128
 #define LINE_CHUNK 128
 #define PROGRAM_BUF_CHUNK (MAX_LINE_LEN * LINE_CHUNK)
 #define INSTR_BITS 16
+#define SYMBOL_MAX_LEN 64
+#define VAR_START_ADDR 16
+#define MAX_SYMBOLS 1024
 
 #include <stdio.h>
 #include <string.h>
@@ -11,6 +21,98 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <ctype.h>
+
+// Represents a symbol as a name:value pair.
+typedef struct Symbol
+{
+    char name[SYMBOL_MAX_LEN];
+    char value[SYMBOL_MAX_LEN];
+} Symbol;
+
+// Sets the values of a symbol.
+void symbol_set_value(Symbol *symbol, char *name, char *value)
+{
+    strncpy(symbol->name, name, SYMBOL_MAX_LEN);
+    strncpy(symbol->value, value, SYMBOL_MAX_LEN);
+}
+
+/* Represents the list of symbols found in the program.
+Although a hash table might make more sense, a simple array is much quicker
+to implement and may even be faster since the size of the table should be
+relatively small. */
+typedef struct SymbolTable
+{
+    Symbol symbols[MAX_SYMBOLS];
+    int count;
+    int variables;
+} SymbolTable;
+
+// Adds a symbol to the table.
+void symboltable_add(SymbolTable *table, Symbol symbol, bool is_var)
+{
+    table->symbols[table->count] = symbol;
+    table->count++;
+
+    if (is_var)
+    {
+        table->variables++;
+    }
+}
+
+// Retrieves the value of a symbol if it exists.
+void symboltable_get(SymbolTable *table, char *name, char *dest)
+{
+    for (int i = 0; i < table->count; i++)
+    {
+        if (strcmp(table->symbols[i].name, name) == 0)
+        {
+            strncpy(dest, table->symbols[i].value, SYMBOL_MAX_LEN);
+            break;
+        }
+    }
+}
+
+// Initializes the symbol table.
+void symboltable_init(SymbolTable *table)
+{
+    table->count = 0;
+    table->variables = 0;
+    Symbol symbol;
+
+    // Add predefined symbols
+    symbol_set_value(&symbol, "SP", "0");
+    symboltable_add(table, symbol, false);
+
+    symbol_set_value(&symbol, "LCL", "1");
+    symboltable_add(table, symbol, false);
+
+    symbol_set_value(&symbol, "ARG", "2");
+    symboltable_add(table, symbol, false);
+
+    symbol_set_value(&symbol, "THIS", "3");
+    symboltable_add(table, symbol, false);
+
+    symbol_set_value(&symbol, "THAT", "4");
+    symboltable_add(table, symbol, false);
+
+    // Add symbols R0-R15
+    for (int i = 0; i < 16; i++)
+    {
+        char label[4] = "R";
+        char num[3];
+        sprintf(num, "%d", i);
+        strncat(label, num, 3);
+
+        symbol_set_value(&symbol, label, num);
+        symboltable_add(table, symbol, false);
+    }
+
+    symbol_set_value(&symbol, "SCREEN", "16384");
+    symboltable_add(table, symbol, false);
+
+    symbol_set_value(&symbol, "KBD", "24576");
+    symboltable_add(table, symbol, false);
+}
 
 // Contains information about the loaded program such as contents and size.
 typedef struct Program
@@ -20,11 +122,27 @@ typedef struct Program
     size_t size;
     int lines;
 } Program;
+
+// Initialize the program.
 void program_init(Program *program)
 {
     program->assembly = calloc(PROGRAM_BUF_CHUNK, sizeof(char));
     program->size = PROGRAM_BUF_CHUNK * sizeof(char);
     program->lines = 0;
+}
+
+// Add a line to the program.
+void program_add_line(Program *program, char *line, size_t line_len)
+{
+    strncpy(program->assembly + (program->lines * MAX_LINE_LEN), line, line_len + 1);
+
+    // Expand the program buffer every LINE_CHUNK number of lines.
+    program->lines++;
+    if (program->lines % LINE_CHUNK == 0)
+    {
+        program->size += PROGRAM_BUF_CHUNK;
+        program->assembly = realloc(program->assembly, program->size);
+    }
 }
 
 // Frees up memory before exiting.
@@ -97,15 +215,7 @@ bool first_pass(char *filename, Program *program)
             // If variable symbol, value is 16 + variables found so far
 
             // Add line to buffer.
-            strncpy(program->assembly + (program->lines * MAX_LINE_LEN), line, line_len + 1);
-
-            // Expand the program buffer every LINE_CHUNK number of lines.
-            program->lines++;
-            if (program->lines % LINE_CHUNK == 0)
-            {
-                program->size += (LINE_CHUNK * MAX_LINE_LEN);
-                program->assembly = realloc(program->assembly, program->size);
-            }
+            program_add_line(program, line, line_len);
         }
     }
 
@@ -426,8 +536,9 @@ int main(int argc, char **argv)
     Program program;
     program_init(&program);
 
-    // Create symbol table
-    // Add predefined symbols to table
+    // Initialize symbol table
+    SymbolTable symtbl;
+    symboltable_init(&symtbl);
 
     // Perform first pass
     if (!first_pass(argv[1], &program))

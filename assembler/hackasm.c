@@ -16,7 +16,6 @@
 typedef struct Program
 {
     char *binary;
-    size_t bin_size;
     char *assembly;
     size_t size;
     int lines;
@@ -25,9 +24,22 @@ void program_init(Program *program)
 {
     program->assembly = calloc(PROGRAM_BUF_CHUNK, sizeof(char));
     program->size = PROGRAM_BUF_CHUNK * sizeof(char);
-    program->binary = calloc(program->size * (INSTR_BITS + 2), sizeof(char));
-    program->bin_size = program->size * (INSTR_BITS + 2);
     program->lines = 0;
+}
+
+// Frees up memory before exiting.
+void clean_exit(Program *program, int status)
+{
+    if (program->assembly != NULL)
+    {
+        free(program->assembly);
+    }
+    if (program->binary != NULL)
+    {
+        free(program->binary);
+    }
+
+    exit(status);
 }
 
 // Remove all whitespace from the line.
@@ -91,15 +103,17 @@ bool first_pass(char *filename, Program *program)
             program->lines++;
             if (program->lines % LINE_CHUNK == 0)
             {
-                program->size *= 2;
+                program->size += (LINE_CHUNK * MAX_LINE_LEN);
                 program->assembly = realloc(program->assembly, program->size);
-                program->bin_size *= 2;
-                program->binary = realloc(program->binary, program->bin_size);
             }
         }
     }
 
     fclose(fp);
+
+    // Create space to store the binary conversion of program
+    program->binary = calloc(program->size, sizeof(char));
+
     return true;
 }
 
@@ -107,19 +121,18 @@ bool first_pass(char *filename, Program *program)
 instructions into binary. */
 void second_pass(Program *program)
 {
-    // Do second pass replacing each symbol in line with value in table
-    // After replace symbol, break assembly into parts
-    // Convert parts into binary
-    // Concat binary to out string + \n
     for (int i = 0; i < program->lines; i++)
     {
+        // Replace each symbol in line with value in table
+        // TODO
+
         // Get the line of assembly code
         char line[MAX_LINE_LEN];
         strncpy(line, program->assembly + (i * MAX_LINE_LEN), MAX_LINE_LEN);
 
         char instruction[INSTR_BITS + 2] = "0000000000000000\n";
 
-        // Handle A instructions (which all begin with '@')
+        // Handle A instruction (which all begin with '@')
         if (line[0] == '@')
         {
             uint16_t addr = atoi(line + 1);
@@ -128,6 +141,252 @@ void second_pass(Program *program)
                 /* Get the least significant bit of address, convert it to
                 ASCII, and store it in respective instruction bit. */
                 instruction[(INSTR_BITS - 1) - b] = ((addr >> b) & 0x0001) + '0';
+            }
+        }
+
+        // Handle C instruction
+        else
+        {
+            // Set first 3 bits to 111
+            memcpy(instruction, "111", 3);
+
+            // Store the three parts of a Hack assembly instruction
+            char dest[4] = "";
+            char comp[4] = "";
+            char jump[4] = "";
+
+            char *dest_pntr = strchr(line, '=');
+            char *jump_pntr = strchr(line, ';');
+
+            int comp_bits = 7;
+            int dest_bits = 3;
+            int jump_bits = 3;
+
+            char *comp_start = instruction + 3;
+            char *dest_start = instruction + 3 + comp_bits;
+            char *jump_start = instruction + 3 + comp_bits + dest_bits;
+
+            // Get the destination
+            if (dest_pntr != NULL)
+            {
+                strncpy(dest, line, dest_pntr - line);
+            }
+
+            // Get the jump
+            if (jump_pntr != NULL)
+            {
+                strncpy(jump, jump_pntr + 1, 3);
+            }
+
+            // Get the comp
+            if (dest_pntr == NULL && jump_pntr == NULL)
+            {
+                strncpy(comp, line, strlen(line));
+            }
+            else if (dest_pntr == NULL)
+            {
+                strncpy(comp, line, jump_pntr - line);
+            }
+            else
+            {
+                strcpy(comp, dest_pntr + 1);
+            }
+
+            // Convert comp into binary
+            if (strcmp(comp, "0") == 0)
+            {
+                memcpy(comp_start, "0101010", comp_bits);
+            }
+            else if (strcmp(comp, "1") == 0)
+            {
+                memcpy(comp_start, "0111111", comp_bits);
+            }
+            else if (strcmp(comp, "-1") == 0)
+            {
+                memcpy(comp_start, "0111010", comp_bits);
+            }
+            else if (strcmp(comp, "D") == 0)
+            {
+                memcpy(comp_start, "0001100", comp_bits);
+            }
+            else if (strcmp(comp, "A") == 0)
+            {
+                memcpy(comp_start, "0110000", comp_bits);
+            }
+            else if (strcmp(comp, "!D") == 0)
+            {
+                memcpy(comp_start, "0001101", comp_bits);
+            }
+            else if (strcmp(comp, "!A") == 0)
+            {
+                memcpy(comp_start, "0110011", comp_bits);
+            }
+            else if (strcmp(comp, "-D") == 0)
+            {
+                memcpy(comp_start, "0001111", comp_bits);
+            }
+            else if (strcmp(comp, "-A") == 0)
+            {
+                memcpy(comp_start, "0110011", comp_bits);
+            }
+            else if (strcmp(comp, "D+1") == 0)
+            {
+                memcpy(comp_start, "0011111", comp_bits);
+            }
+            else if (strcmp(comp, "A+1") == 0)
+            {
+                memcpy(comp_start, "0110111", comp_bits);
+            }
+            else if (strcmp(comp, "D-1") == 0)
+            {
+                memcpy(comp_start, "0001110", comp_bits);
+            }
+            else if (strcmp(comp, "A-1") == 0)
+            {
+                memcpy(comp_start, "0110010", comp_bits);
+            }
+            else if (strcmp(comp, "D+A") == 0)
+            {
+                memcpy(comp_start, "0000010", comp_bits);
+            }
+            else if (strcmp(comp, "D-A") == 0)
+            {
+                memcpy(comp_start, "0010011", comp_bits);
+            }
+            else if (strcmp(comp, "A-D") == 0)
+            {
+                memcpy(comp_start, "0000111", comp_bits);
+            }
+            else if (strcmp(comp, "D&A") == 0)
+            {
+                memcpy(comp_start, "0000000", comp_bits);
+            }
+            else if (strcmp(comp, "D|A") == 0)
+            {
+                memcpy(comp_start, "0010101", comp_bits);
+            }
+            else if (strcmp(comp, "M") == 0)
+            {
+                memcpy(comp_start, "1110000", comp_bits);
+            }
+            else if (strcmp(comp, "!M") == 0)
+            {
+                memcpy(comp_start, "1110001", comp_bits);
+            }
+            else if (strcmp(comp, "-M") == 0)
+            {
+                memcpy(comp_start, "1110011", comp_bits);
+            }
+            else if (strcmp(comp, "M+1") == 0)
+            {
+                memcpy(comp_start, "1110111", comp_bits);
+            }
+            else if (strcmp(comp, "M-1") == 0)
+            {
+                memcpy(comp_start, "1110010", comp_bits);
+            }
+            else if (strcmp(comp, "D+M") == 0)
+            {
+                memcpy(comp_start, "1000010", comp_bits);
+            }
+            else if (strcmp(comp, "D-M") == 0)
+            {
+                memcpy(comp_start, "1010011", comp_bits);
+            }
+            else if (strcmp(comp, "M-D") == 0)
+            {
+                memcpy(comp_start, "1000111", comp_bits);
+            }
+            else if (strcmp(comp, "D&M") == 0)
+            {
+                memcpy(comp_start, "1000000", comp_bits);
+            }
+            else if (strcmp(comp, "D|M") == 0)
+            {
+                memcpy(comp_start, "1010101", comp_bits);
+            }
+            else
+            {
+                fprintf(stderr, "Invalid compute on line %d.\n", i);
+                clean_exit(program, 1);
+            }
+
+            // Convert dest into binary
+            if (strcmp(dest, "M") == 0)
+            {
+                memcpy(dest_start, "001", dest_bits);
+            }
+            else if (strcmp(dest, "D") == 0)
+            {
+                memcpy(dest_start, "010", dest_bits);
+            }
+            else if (strcmp(dest, "MD") == 0)
+            {
+                memcpy(dest_start, "011", dest_bits);
+            }
+            else if (strcmp(dest, "A") == 0)
+            {
+                memcpy(dest_start, "100", dest_bits);
+            }
+            else if (strcmp(dest, "AM") == 0)
+            {
+                memcpy(dest_start, "101", dest_bits);
+            }
+            else if (strcmp(dest, "AD") == 0)
+            {
+                memcpy(dest_start, "110", dest_bits);
+            }
+            else if (strcmp(dest, "AMD") == 0)
+            {
+                memcpy(dest_start, "111", dest_bits);
+            }
+            else if (strcmp(dest, "") == 0)
+            {
+                memcpy(dest_start, "000", dest_bits);
+            }
+            else
+            {
+                fprintf(stderr, "Invalid destination on line %d.\n", i);
+                clean_exit(program, 1);
+            }
+
+            // Convert jump into binary
+            if (strcmp(jump, "JGT") == 0)
+            {
+                memcpy(jump_start, "001", jump_bits);
+            }
+            else if (strcmp(jump, "JEQ") == 0)
+            {
+                memcpy(jump_start, "010", jump_bits);
+            }
+            else if (strcmp(jump, "JGE") == 0)
+            {
+                memcpy(jump_start, "011", jump_bits);
+            }
+            else if (strcmp(jump, "JLT") == 0)
+            {
+                memcpy(jump_start, "100", jump_bits);
+            }
+            else if (strcmp(jump, "JNE") == 0)
+            {
+                memcpy(jump_start, "101", jump_bits);
+            }
+            else if (strcmp(jump, "JLE") == 0)
+            {
+                memcpy(jump_start, "110", jump_bits);
+            }
+            else if (strcmp(jump, "JMP") == 0)
+            {
+                memcpy(jump_start, "111", jump_bits);
+            }
+            else if (strcmp(jump, "") == 0)
+            {
+                memcpy(jump_start, "000", jump_bits);
+            }
+            else
+            {
+                fprintf(stderr, "Invalid jump on line %d.\n", i);
+                clean_exit(program, 1);
             }
         }
 
@@ -147,23 +406,12 @@ bool gen_hack(char *filename, Program *program)
     }
     else
     {
-        fprintf(stderr, "Unable to generate .hack file.\n");
+        fprintf(stderr, "Unable to generate %s\n", filename);
         return false;
     }
 
     fclose(fp);
     return true;
-}
-
-// Frees up memory before exiting.
-void clean_exit(Program *program, int status)
-{
-    if (program->assembly != NULL)
-    {
-        free(program->assembly);
-    }
-
-    exit(status);
 }
 
 int main(int argc, char **argv)
@@ -179,7 +427,7 @@ int main(int argc, char **argv)
     program_init(&program);
 
     // Create symbol table
-    // Add predefined constants to table
+    // Add predefined symbols to table
 
     // Perform first pass
     if (!first_pass(argv[1], &program))

@@ -207,6 +207,23 @@ void trim_comments(char *str)
     }
 }
 
+// Handles a symbol found on the first pass.
+void handle_symbol_fp(Program *program, SymbolTable *symtbl, char *line)
+{
+    Symbol symbol = {"", ""};
+    strncpy(symbol.name, line + 1, strlen(line) - 2);
+    symboltable_get(symtbl, symbol.name, symbol.value);
+
+    if (symbol.value[0] == '\0')
+    {
+        sprintf(symbol.value, "%d", program->lines);
+        if (!symboltable_add(symtbl, symbol, false))
+        {
+            clean_exit(program, 1);
+        }
+    }
+}
+
 /* Performs the first pass which includes removing whitespace and comments,
 and adding labels to the symbol table. */
 bool first_pass(char *filename, Program *program, SymbolTable *symtbl)
@@ -230,23 +247,11 @@ bool first_pass(char *filename, Program *program, SymbolTable *symtbl)
         size_t line_len = strlen(line);
         if (line_len > 0)
         {
-            Symbol symbol = {"", ""};
-
             /* If a label is encountered, add it to the symbol table if new and
             strip it from the program. */
             if (line[0] == '(')
             {
-                strncpy(symbol.name, line + 1, line_len - 2);
-                symboltable_get(symtbl, symbol.name, symbol.value);
-                if (symbol.value[0] == '\0')
-                {
-                    sprintf(symbol.value, "%d", program->lines);
-                    if (!symboltable_add(symtbl, symbol, false))
-                    {
-                        clean_exit(program, 1);
-                    }
-                }
-
+                handle_symbol_fp(program, symtbl, line);
                 continue;
             }
 
@@ -261,6 +266,283 @@ bool first_pass(char *filename, Program *program, SymbolTable *symtbl)
     program->binary = calloc(program->size, sizeof(char));
 
     return true;
+}
+
+// Splits asm instruction into its parts.
+void split_asm(char *line, char *dest, char *comp, char *jump)
+{
+    char *dest_pntr = strchr(line, '=');
+    char *jump_pntr = strchr(line, ';');
+
+    // Get the destination
+    if (dest_pntr != NULL)
+    {
+        strncpy(dest, line, dest_pntr - line);
+    }
+
+    // Get the jump
+    if (jump_pntr != NULL)
+    {
+        strncpy(jump, jump_pntr + 1, 3);
+    }
+
+    // Get the comp
+    if (dest_pntr == NULL && jump_pntr == NULL)
+    {
+        strncpy(comp, line, strlen(line));
+    }
+    else if (dest_pntr == NULL)
+    {
+        strncpy(comp, line, jump_pntr - line);
+    }
+    else
+    {
+        strcpy(comp, dest_pntr + 1);
+    }
+}
+
+// Converts the comp as asm to binary.
+bool comp_asm_to_bin(char *comp, char *comp_start, int comp_bits)
+{
+    if (strcmp(comp, "0") == 0)
+    {
+        memcpy(comp_start, "0101010", comp_bits);
+    }
+    else if (strcmp(comp, "1") == 0)
+    {
+        memcpy(comp_start, "0111111", comp_bits);
+    }
+    else if (strcmp(comp, "-1") == 0)
+    {
+        memcpy(comp_start, "0111010", comp_bits);
+    }
+    else if (strcmp(comp, "D") == 0)
+    {
+        memcpy(comp_start, "0001100", comp_bits);
+    }
+    else if (strcmp(comp, "A") == 0)
+    {
+        memcpy(comp_start, "0110000", comp_bits);
+    }
+    else if (strcmp(comp, "!D") == 0)
+    {
+        memcpy(comp_start, "0001101", comp_bits);
+    }
+    else if (strcmp(comp, "!A") == 0)
+    {
+        memcpy(comp_start, "0110011", comp_bits);
+    }
+    else if (strcmp(comp, "-D") == 0)
+    {
+        memcpy(comp_start, "0001111", comp_bits);
+    }
+    else if (strcmp(comp, "-A") == 0)
+    {
+        memcpy(comp_start, "0110011", comp_bits);
+    }
+    else if (strcmp(comp, "D+1") == 0)
+    {
+        memcpy(comp_start, "0011111", comp_bits);
+    }
+    else if (strcmp(comp, "A+1") == 0)
+    {
+        memcpy(comp_start, "0110111", comp_bits);
+    }
+    else if (strcmp(comp, "D-1") == 0)
+    {
+        memcpy(comp_start, "0001110", comp_bits);
+    }
+    else if (strcmp(comp, "A-1") == 0)
+    {
+        memcpy(comp_start, "0110010", comp_bits);
+    }
+    else if (strcmp(comp, "D+A") == 0)
+    {
+        memcpy(comp_start, "0000010", comp_bits);
+    }
+    else if (strcmp(comp, "D-A") == 0)
+    {
+        memcpy(comp_start, "0010011", comp_bits);
+    }
+    else if (strcmp(comp, "A-D") == 0)
+    {
+        memcpy(comp_start, "0000111", comp_bits);
+    }
+    else if (strcmp(comp, "D&A") == 0)
+    {
+        memcpy(comp_start, "0000000", comp_bits);
+    }
+    else if (strcmp(comp, "D|A") == 0)
+    {
+        memcpy(comp_start, "0010101", comp_bits);
+    }
+    else if (strcmp(comp, "M") == 0)
+    {
+        memcpy(comp_start, "1110000", comp_bits);
+    }
+    else if (strcmp(comp, "!M") == 0)
+    {
+        memcpy(comp_start, "1110001", comp_bits);
+    }
+    else if (strcmp(comp, "-M") == 0)
+    {
+        memcpy(comp_start, "1110011", comp_bits);
+    }
+    else if (strcmp(comp, "M+1") == 0)
+    {
+        memcpy(comp_start, "1110111", comp_bits);
+    }
+    else if (strcmp(comp, "M-1") == 0)
+    {
+        memcpy(comp_start, "1110010", comp_bits);
+    }
+    else if (strcmp(comp, "D+M") == 0)
+    {
+        memcpy(comp_start, "1000010", comp_bits);
+    }
+    else if (strcmp(comp, "D-M") == 0)
+    {
+        memcpy(comp_start, "1010011", comp_bits);
+    }
+    else if (strcmp(comp, "M-D") == 0)
+    {
+        memcpy(comp_start, "1000111", comp_bits);
+    }
+    else if (strcmp(comp, "D&M") == 0)
+    {
+        memcpy(comp_start, "1000000", comp_bits);
+    }
+    else if (strcmp(comp, "D|M") == 0)
+    {
+        memcpy(comp_start, "1010101", comp_bits);
+    }
+    else
+    {
+        return false;
+    }
+
+    return true;
+}
+
+// Converts the dest as asm to binary.
+bool dest_asm_to_bin(char *dest, char *dest_start, int dest_bits)
+{
+    if (strcmp(dest, "M") == 0)
+    {
+        memcpy(dest_start, "001", dest_bits);
+    }
+    else if (strcmp(dest, "D") == 0)
+    {
+        memcpy(dest_start, "010", dest_bits);
+    }
+    else if (strcmp(dest, "MD") == 0)
+    {
+        memcpy(dest_start, "011", dest_bits);
+    }
+    else if (strcmp(dest, "A") == 0)
+    {
+        memcpy(dest_start, "100", dest_bits);
+    }
+    else if (strcmp(dest, "AM") == 0)
+    {
+        memcpy(dest_start, "101", dest_bits);
+    }
+    else if (strcmp(dest, "AD") == 0)
+    {
+        memcpy(dest_start, "110", dest_bits);
+    }
+    else if (strcmp(dest, "AMD") == 0)
+    {
+        memcpy(dest_start, "111", dest_bits);
+    }
+    else if (strcmp(dest, "") == 0)
+    {
+        memcpy(dest_start, "000", dest_bits);
+    }
+    else
+    {
+        return false;
+    }
+
+    return true;
+}
+
+// Converts the jump as asm to binary.
+bool jump_asm_to_bin(char *jump, char *jump_start, int jump_bits)
+{
+    if (strcmp(jump, "JGT") == 0)
+    {
+        memcpy(jump_start, "001", jump_bits);
+    }
+    else if (strcmp(jump, "JEQ") == 0)
+    {
+        memcpy(jump_start, "010", jump_bits);
+    }
+    else if (strcmp(jump, "JGE") == 0)
+    {
+        memcpy(jump_start, "011", jump_bits);
+    }
+    else if (strcmp(jump, "JLT") == 0)
+    {
+        memcpy(jump_start, "100", jump_bits);
+    }
+    else if (strcmp(jump, "JNE") == 0)
+    {
+        memcpy(jump_start, "101", jump_bits);
+    }
+    else if (strcmp(jump, "JLE") == 0)
+    {
+        memcpy(jump_start, "110", jump_bits);
+    }
+    else if (strcmp(jump, "JMP") == 0)
+    {
+        memcpy(jump_start, "111", jump_bits);
+    }
+    else if (strcmp(jump, "") == 0)
+    {
+        memcpy(jump_start, "000", jump_bits);
+    }
+    else
+    {
+        return false;
+    }
+
+    return true;
+}
+
+// Handles a symbol found in second pass.
+void handle_symbol_sp(Program *program, SymbolTable *symtbl, char *line)
+{
+    Symbol symbol = {"", ""};
+    strncpy(symbol.name, line + 1, strlen(line));
+    symboltable_get(symtbl, symbol.name, symbol.value);
+
+    /* If the symbol does not exist yet, we know it must be a
+                variable since labels were added to the table in the first pass.
+                Thus, we add it to the table with an appropriate address. */
+    if (symbol.value[0] == '\0')
+    {
+        sprintf(symbol.value, "%d", VAR_START_ADDR + symtbl->variables);
+        if (!symboltable_add(symtbl, symbol, true))
+        {
+            clean_exit(program, 1);
+        }
+    }
+
+    // Replace the line with the value of the symbol.
+    strncpy(line + 1, symbol.value, strlen(symbol.value) + 1);
+}
+
+// Converts the decimal address in asm instruction to binary string.
+void asm_dec_to_bin(char *line, char *instruction)
+{
+    /* Get the least significant bit of address, convert it to
+        ASCII, and store it in respective instruction bit. */
+    uint16_t addr = atoi(line + 1);
+    for (int b = 0; b < (INSTR_BITS - 1); b++)
+    {
+        instruction[(INSTR_BITS - 1) - b] = ((addr >> b) & 0x0001) + '0';
+    }
 }
 
 /* Performs the second pass which includes converting symbols into numbers and
@@ -282,33 +564,10 @@ void second_pass(Program *program, SymbolTable *symtbl)
             so look it up in symbol table. */
             if (!isdigit(line[1]))
             {
-                Symbol symbol = {"", ""};
-                strncpy(symbol.name, line + 1, strlen(line));
-                symboltable_get(symtbl, symbol.name, symbol.value);
-
-                /* If the symbol does not exist yet, we know it must be a
-                variable since labels were added to the table in the first pass.
-                Thus, we add it to the table with an appropriate address. */
-                if (symbol.value[0] == '\0')
-                {
-                    sprintf(symbol.value, "%d", VAR_START_ADDR + symtbl->variables);
-                    if (!symboltable_add(symtbl, symbol, true))
-                    {
-                        clean_exit(program, 1);
-                    }
-                }
-
-                // Replace the line with the value of the symbol.
-                strncpy(line + 1, symbol.value, strlen(symbol.value) + 1);
+                handle_symbol_sp(program, symtbl, line);
             }
 
-            /* Get the least significant bit of address, convert it to
-            ASCII, and store it in respective instruction bit. */
-            uint16_t addr = atoi(line + 1);
-            for (int b = 0; b < (INSTR_BITS - 1); b++)
-            {
-                instruction[(INSTR_BITS - 1) - b] = ((addr >> b) & 0x0001) + '0';
-            }
+            asm_dec_to_bin(line, instruction);
         }
 
         // Handle C instruction
@@ -321,9 +580,7 @@ void second_pass(Program *program, SymbolTable *symtbl)
             char dest[4] = "";
             char comp[4] = "";
             char jump[4] = "";
-
-            char *dest_pntr = strchr(line, '=');
-            char *jump_pntr = strchr(line, ';');
+            split_asm(line, dest, comp, jump);
 
             int comp_bits = 7;
             int dest_bits = 3;
@@ -333,224 +590,22 @@ void second_pass(Program *program, SymbolTable *symtbl)
             char *dest_start = instruction + 3 + comp_bits;
             char *jump_start = instruction + 3 + comp_bits + dest_bits;
 
-            // Get the destination
-            if (dest_pntr != NULL)
-            {
-                strncpy(dest, line, dest_pntr - line);
-            }
-
-            // Get the jump
-            if (jump_pntr != NULL)
-            {
-                strncpy(jump, jump_pntr + 1, 3);
-            }
-
-            // Get the comp
-            if (dest_pntr == NULL && jump_pntr == NULL)
-            {
-                strncpy(comp, line, strlen(line));
-            }
-            else if (dest_pntr == NULL)
-            {
-                strncpy(comp, line, jump_pntr - line);
-            }
-            else
-            {
-                strcpy(comp, dest_pntr + 1);
-            }
-
             // Convert comp into binary
-            if (strcmp(comp, "0") == 0)
-            {
-                memcpy(comp_start, "0101010", comp_bits);
-            }
-            else if (strcmp(comp, "1") == 0)
-            {
-                memcpy(comp_start, "0111111", comp_bits);
-            }
-            else if (strcmp(comp, "-1") == 0)
-            {
-                memcpy(comp_start, "0111010", comp_bits);
-            }
-            else if (strcmp(comp, "D") == 0)
-            {
-                memcpy(comp_start, "0001100", comp_bits);
-            }
-            else if (strcmp(comp, "A") == 0)
-            {
-                memcpy(comp_start, "0110000", comp_bits);
-            }
-            else if (strcmp(comp, "!D") == 0)
-            {
-                memcpy(comp_start, "0001101", comp_bits);
-            }
-            else if (strcmp(comp, "!A") == 0)
-            {
-                memcpy(comp_start, "0110011", comp_bits);
-            }
-            else if (strcmp(comp, "-D") == 0)
-            {
-                memcpy(comp_start, "0001111", comp_bits);
-            }
-            else if (strcmp(comp, "-A") == 0)
-            {
-                memcpy(comp_start, "0110011", comp_bits);
-            }
-            else if (strcmp(comp, "D+1") == 0)
-            {
-                memcpy(comp_start, "0011111", comp_bits);
-            }
-            else if (strcmp(comp, "A+1") == 0)
-            {
-                memcpy(comp_start, "0110111", comp_bits);
-            }
-            else if (strcmp(comp, "D-1") == 0)
-            {
-                memcpy(comp_start, "0001110", comp_bits);
-            }
-            else if (strcmp(comp, "A-1") == 0)
-            {
-                memcpy(comp_start, "0110010", comp_bits);
-            }
-            else if (strcmp(comp, "D+A") == 0)
-            {
-                memcpy(comp_start, "0000010", comp_bits);
-            }
-            else if (strcmp(comp, "D-A") == 0)
-            {
-                memcpy(comp_start, "0010011", comp_bits);
-            }
-            else if (strcmp(comp, "A-D") == 0)
-            {
-                memcpy(comp_start, "0000111", comp_bits);
-            }
-            else if (strcmp(comp, "D&A") == 0)
-            {
-                memcpy(comp_start, "0000000", comp_bits);
-            }
-            else if (strcmp(comp, "D|A") == 0)
-            {
-                memcpy(comp_start, "0010101", comp_bits);
-            }
-            else if (strcmp(comp, "M") == 0)
-            {
-                memcpy(comp_start, "1110000", comp_bits);
-            }
-            else if (strcmp(comp, "!M") == 0)
-            {
-                memcpy(comp_start, "1110001", comp_bits);
-            }
-            else if (strcmp(comp, "-M") == 0)
-            {
-                memcpy(comp_start, "1110011", comp_bits);
-            }
-            else if (strcmp(comp, "M+1") == 0)
-            {
-                memcpy(comp_start, "1110111", comp_bits);
-            }
-            else if (strcmp(comp, "M-1") == 0)
-            {
-                memcpy(comp_start, "1110010", comp_bits);
-            }
-            else if (strcmp(comp, "D+M") == 0)
-            {
-                memcpy(comp_start, "1000010", comp_bits);
-            }
-            else if (strcmp(comp, "D-M") == 0)
-            {
-                memcpy(comp_start, "1010011", comp_bits);
-            }
-            else if (strcmp(comp, "M-D") == 0)
-            {
-                memcpy(comp_start, "1000111", comp_bits);
-            }
-            else if (strcmp(comp, "D&M") == 0)
-            {
-                memcpy(comp_start, "1000000", comp_bits);
-            }
-            else if (strcmp(comp, "D|M") == 0)
-            {
-                memcpy(comp_start, "1010101", comp_bits);
-            }
-            else
+            if (!comp_asm_to_bin(comp, comp_start, comp_bits))
             {
                 fprintf(stderr, "Invalid compute on line %d.\n", i);
                 clean_exit(program, 1);
             }
 
             // Convert dest into binary
-            if (strcmp(dest, "M") == 0)
-            {
-                memcpy(dest_start, "001", dest_bits);
-            }
-            else if (strcmp(dest, "D") == 0)
-            {
-                memcpy(dest_start, "010", dest_bits);
-            }
-            else if (strcmp(dest, "MD") == 0)
-            {
-                memcpy(dest_start, "011", dest_bits);
-            }
-            else if (strcmp(dest, "A") == 0)
-            {
-                memcpy(dest_start, "100", dest_bits);
-            }
-            else if (strcmp(dest, "AM") == 0)
-            {
-                memcpy(dest_start, "101", dest_bits);
-            }
-            else if (strcmp(dest, "AD") == 0)
-            {
-                memcpy(dest_start, "110", dest_bits);
-            }
-            else if (strcmp(dest, "AMD") == 0)
-            {
-                memcpy(dest_start, "111", dest_bits);
-            }
-            else if (strcmp(dest, "") == 0)
-            {
-                memcpy(dest_start, "000", dest_bits);
-            }
-            else
+            if (!dest_asm_to_bin(dest, dest_start, dest_bits))
             {
                 fprintf(stderr, "Invalid destination on line %d.\n", i);
                 clean_exit(program, 1);
             }
 
             // Convert jump into binary
-            if (strcmp(jump, "JGT") == 0)
-            {
-                memcpy(jump_start, "001", jump_bits);
-            }
-            else if (strcmp(jump, "JEQ") == 0)
-            {
-                memcpy(jump_start, "010", jump_bits);
-            }
-            else if (strcmp(jump, "JGE") == 0)
-            {
-                memcpy(jump_start, "011", jump_bits);
-            }
-            else if (strcmp(jump, "JLT") == 0)
-            {
-                memcpy(jump_start, "100", jump_bits);
-            }
-            else if (strcmp(jump, "JNE") == 0)
-            {
-                memcpy(jump_start, "101", jump_bits);
-            }
-            else if (strcmp(jump, "JLE") == 0)
-            {
-                memcpy(jump_start, "110", jump_bits);
-            }
-            else if (strcmp(jump, "JMP") == 0)
-            {
-                memcpy(jump_start, "111", jump_bits);
-            }
-            else if (strcmp(jump, "") == 0)
-            {
-                memcpy(jump_start, "000", jump_bits);
-            }
-            else
+            if (!jump_asm_to_bin(jump, jump_start, jump_bits))
             {
                 fprintf(stderr, "Invalid jump on line %d.\n", i);
                 clean_exit(program, 1);
@@ -581,6 +636,225 @@ bool gen_hack(char *filename, Program *program)
     return true;
 }
 
+// Converts binary string to decimal integer.
+int bin_to_dec(char *bin)
+{
+    int dec = 0;
+    int place = 16384; // 15th bit's place value
+
+    while (*bin++)
+    {
+        if (bin[0] == '1')
+        {
+            dec += place;
+        }
+
+        place /= 2;
+    }
+
+    return dec;
+}
+
+// Splits binary instruction into its parts.
+void split_bin(char *line, char *comp, char *dest, char *jump)
+{
+    strncpy(comp, line + 3, 7);
+    strncpy(dest, line + 10, 3);
+    strncpy(jump, line + 13, 3);
+}
+
+// Converts the dest as binary to asm.
+void dest_bin_to_asm(char *dest, char *instruction)
+{
+    if (strcmp(dest, "001") == 0)
+    {
+        strcat(instruction, "M");
+    }
+    else if (strcmp(dest, "010") == 0)
+    {
+        strcat(instruction, "D");
+    }
+    else if (strcmp(dest, "011") == 0)
+    {
+        strcat(instruction, "MD");
+    }
+    else if (strcmp(dest, "100") == 0)
+    {
+        strcat(instruction, "A");
+    }
+    else if (strcmp(dest, "101") == 0)
+    {
+        strcat(instruction, "AM");
+    }
+    else if (strcmp(dest, "110") == 0)
+    {
+        strcat(instruction, "AD");
+    }
+    else if (strcmp(dest, "111") == 0)
+    {
+        strcat(instruction, "AMD");
+    }
+    if (!strcmp(dest, "000") == 0)
+    {
+        strcat(instruction, "=");
+    }
+}
+
+// Converts the comp as binary to asm.
+void comp_bin_to_asm(char *comp, char *instruction)
+{
+    if (strcmp(comp, "0101010") == 0)
+    {
+        strcat(instruction, "0");
+    }
+    else if (strcmp(comp, "0111111") == 0)
+    {
+        strcat(instruction, "1");
+    }
+    else if (strcmp(comp, "0111010") == 0)
+    {
+        strcat(instruction, "-1");
+    }
+    else if (strcmp(comp, "0001100") == 0)
+    {
+        strcat(instruction, "D");
+    }
+    else if (strcmp(comp, "0110000") == 0)
+    {
+        strcat(instruction, "A");
+    }
+    else if (strcmp(comp, "0001101") == 0)
+    {
+        strcat(instruction, "!D");
+    }
+    else if (strcmp(comp, "0110001") == 0)
+    {
+        strcat(instruction, "!A");
+    }
+    else if (strcmp(comp, "0001111") == 0)
+    {
+        strcat(instruction, "-D");
+    }
+    else if (strcmp(comp, "0110011") == 0)
+    {
+        strcat(instruction, "-A");
+    }
+    else if (strcmp(comp, "0011111") == 0)
+    {
+        strcat(instruction, "D+1");
+    }
+    else if (strcmp(comp, "0110111") == 0)
+    {
+        strcat(instruction, "A+1");
+    }
+    else if (strcmp(comp, "0001110") == 0)
+    {
+        strcat(instruction, "D-1");
+    }
+    else if (strcmp(comp, "0110010") == 0)
+    {
+        strcat(instruction, "A-1");
+    }
+    else if (strcmp(comp, "0000010") == 0)
+    {
+        strcat(instruction, "D+A");
+    }
+    else if (strcmp(comp, "0010011") == 0)
+    {
+        strcat(instruction, "D-A");
+    }
+    else if (strcmp(comp, "000111") == 0)
+    {
+        strcat(instruction, "A-D");
+    }
+    else if (strcmp(comp, "0000000") == 0)
+    {
+        strcat(instruction, "D&A");
+    }
+    else if (strcmp(comp, "0010101") == 0)
+    {
+        strcat(instruction, "D|A");
+    }
+    else if (strcmp(comp, "1110000") == 0)
+    {
+        strcat(instruction, "M");
+    }
+    else if (strcmp(comp, "1110001") == 0)
+    {
+        strcat(instruction, "!M");
+    }
+    else if (strcmp(comp, "1110011") == 0)
+    {
+        strcat(instruction, "-M");
+    }
+    else if (strcmp(comp, "1110111") == 0)
+    {
+        strcat(instruction, "M+1");
+    }
+    else if (strcmp(comp, "1110010") == 0)
+    {
+        strcat(instruction, "M-1");
+    }
+    else if (strcmp(comp, "1000010") == 0)
+    {
+        strcat(instruction, "D+M");
+    }
+    else if (strcmp(comp, "1010011") == 0)
+    {
+        strcat(instruction, "D-M");
+    }
+    else if (strcmp(comp, "1000111") == 0)
+    {
+        strcat(instruction, "M-D");
+    }
+    else if (strcmp(comp, "1000000") == 0)
+    {
+        strcat(instruction, "D&M");
+    }
+    else if (strcmp(comp, "1010101") == 0)
+    {
+        strcat(instruction, "D|M");
+    }
+}
+
+// Converts the jump as binary to asm.
+void jump_bin_to_asm(char *jump, char *instruction)
+{
+    if (!strcmp(jump, "000") == 0)
+    {
+        strcat(instruction, ";");
+    }
+    if (strcmp(jump, "001") == 0)
+    {
+        strcat(instruction, "JGT");
+    }
+    else if (strcmp(jump, "010") == 0)
+    {
+        strcat(instruction, "JEQ");
+    }
+    else if (strcmp(jump, "011") == 0)
+    {
+        strcat(instruction, "JGE");
+    }
+    else if (strcmp(jump, "100") == 0)
+    {
+        strcat(instruction, "JLT");
+    }
+    else if (strcmp(jump, "101") == 0)
+    {
+        strcat(instruction, "JNE");
+    }
+    else if (strcmp(jump, "110") == 0)
+    {
+        strcat(instruction, "JLE");
+    }
+    else if (strcmp(jump, "111") == 0)
+    {
+        strcat(instruction, "JMP");
+    }
+}
+
+// Converts a binary program into Hack assembly.
 bool disassemble(char *filename)
 {
     // Create out.asm file to start writing instructions to
@@ -611,217 +885,23 @@ bool disassemble(char *filename)
             strncpy(instruction, "@", 2);
 
             // Convert rest of the line which is in binary to decimal
-            char *bit = line;
-            int dec = 0;
-            int place = 16384; // 15th bit's place value
-            while (*bit++)
-            {
-                if (bit[0] == '1')
-                {
-                    dec += place;
-                }
-
-                place /= 2;
-            }
-
-            // Add the decimal number to instruction
-            sprintf(instruction + 1, "%d", dec);
+            sprintf(instruction + 1, "%d", bin_to_dec(line));
         }
         else
         {
+            // Split binary instruction into parts
             char comp[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-            strncpy(comp, line + 3, 7);
-
             char dest[4] = {0, 0, 0, 0};
-            strncpy(dest, line + 10, 3);
-
             char jump[4] = {0, 0, 0, 0};
-            strncpy(jump, line + 13, 3);
+            split_bin(line, comp, dest, jump);
 
-            // Get dest
-            if (strcmp(dest, "001") == 0)
-            {
-                strcat(instruction, "M");
-            }
-            else if (strcmp(dest, "010") == 0)
-            {
-                strcat(instruction, "D");
-            }
-            else if (strcmp(dest, "011") == 0)
-            {
-                strcat(instruction, "MD");
-            }
-            else if (strcmp(dest, "100") == 0)
-            {
-                strcat(instruction, "A");
-            }
-            else if (strcmp(dest, "101") == 0)
-            {
-                strcat(instruction, "AM");
-            }
-            else if (strcmp(dest, "110") == 0)
-            {
-                strcat(instruction, "AD");
-            }
-            else if (strcmp(dest, "111") == 0)
-            {
-                strcat(instruction, "AMD");
-            }
-            if (!strcmp(dest, "000") == 0)
-            {
-                strcat(instruction, "=");
-            }
-
-            // Get comp
-            if (strcmp(comp, "0101010") == 0)
-            {
-                strcat(instruction, "0");
-            }
-            else if (strcmp(comp, "0111111") == 0)
-            {
-                strcat(instruction, "1");
-            }
-            else if (strcmp(comp, "0111010") == 0)
-            {
-                strcat(instruction, "-1");
-            }
-            else if (strcmp(comp, "0001100") == 0)
-            {
-                strcat(instruction, "D");
-            }
-            else if (strcmp(comp, "0110000") == 0)
-            {
-                strcat(instruction, "A");
-            }
-            else if (strcmp(comp, "0001101") == 0)
-            {
-                strcat(instruction, "!D");
-            }
-            else if (strcmp(comp, "0110001") == 0)
-            {
-                strcat(instruction, "!A");
-            }
-            else if (strcmp(comp, "0001111") == 0)
-            {
-                strcat(instruction, "-D");
-            }
-            else if (strcmp(comp, "0110011") == 0)
-            {
-                strcat(instruction, "-A");
-            }
-            else if (strcmp(comp, "0011111") == 0)
-            {
-                strcat(instruction, "D+1");
-            }
-            else if (strcmp(comp, "0110111") == 0)
-            {
-                strcat(instruction, "A+1");
-            }
-            else if (strcmp(comp, "0001110") == 0)
-            {
-                strcat(instruction, "D-1");
-            }
-            else if (strcmp(comp, "0110010") == 0)
-            {
-                strcat(instruction, "A-1");
-            }
-            else if (strcmp(comp, "0000010") == 0)
-            {
-                strcat(instruction, "D+A");
-            }
-            else if (strcmp(comp, "0010011") == 0)
-            {
-                strcat(instruction, "D-A");
-            }
-            else if (strcmp(comp, "000111") == 0)
-            {
-                strcat(instruction, "A-D");
-            }
-            else if (strcmp(comp, "0000000") == 0)
-            {
-                strcat(instruction, "D&A");
-            }
-            else if (strcmp(comp, "0010101") == 0)
-            {
-                strcat(instruction, "D|A");
-            }
-            else if (strcmp(comp, "1110000") == 0)
-            {
-                strcat(instruction, "M");
-            }
-            else if (strcmp(comp, "1110001") == 0)
-            {
-                strcat(instruction, "!M");
-            }
-            else if (strcmp(comp, "1110011") == 0)
-            {
-                strcat(instruction, "-M");
-            }
-            else if (strcmp(comp, "1110111") == 0)
-            {
-                strcat(instruction, "M+1");
-            }
-            else if (strcmp(comp, "1110010") == 0)
-            {
-                strcat(instruction, "M-1");
-            }
-            else if (strcmp(comp, "1000010") == 0)
-            {
-                strcat(instruction, "D+M");
-            }
-            else if (strcmp(comp, "1010011") == 0)
-            {
-                strcat(instruction, "D-M");
-            }
-            else if (strcmp(comp, "1000111") == 0)
-            {
-                strcat(instruction, "M-D");
-            }
-            else if (strcmp(comp, "1000000") == 0)
-            {
-                strcat(instruction, "D&M");
-            }
-            else if (strcmp(comp, "1010101") == 0)
-            {
-                strcat(instruction, "D|M");
-            }
-
-            // Get jump
-            if (!strcmp(jump, "000") == 0)
-            {
-                strcat(instruction, ";");
-            }
-            if (strcmp(jump, "001") == 0)
-            {
-                strcat(instruction, "JGT");
-            }
-            else if (strcmp(jump, "010") == 0)
-            {
-                strcat(instruction, "JEQ");
-            }
-            else if (strcmp(jump, "011") == 0)
-            {
-                strcat(instruction, "JGE");
-            }
-            else if (strcmp(jump, "100") == 0)
-            {
-                strcat(instruction, "JLT");
-            }
-            else if (strcmp(jump, "101") == 0)
-            {
-                strcat(instruction, "JNE");
-            }
-            else if (strcmp(jump, "110") == 0)
-            {
-                strcat(instruction, "JLE");
-            }
-            else if (strcmp(jump, "111") == 0)
-            {
-                strcat(instruction, "JMP");
-            }
+            // Convert binary to asm
+            dest_bin_to_asm(dest, instruction);
+            comp_bin_to_asm(comp, instruction);
+            jump_bin_to_asm(jump, instruction);
         }
 
-        // Put each instruction on its own line
+        // Put each instruction on its own line in asm file
         strcat(instruction, "\n");
         fwrite(instruction, strlen(instruction), 1, out);
     }
@@ -833,12 +913,8 @@ bool disassemble(char *filename)
 
 int main(int argc, char **argv)
 {
-    if (argc < 2)
-    {
-        fprintf(stderr, "Usage: ./hackasm [-d] <path-to-file>\n");
-        return 1;
-    }
-    else if (argc == 3)
+    // Perform disassembly if -d flag present
+    if (argc == 3 && strcmp(argv[1], "-d") == 0)
     {
         if (disassemble(argv[2]))
         {
@@ -848,6 +924,11 @@ int main(int argc, char **argv)
         {
             return 1;
         }
+    }
+    else if (argc != 2)
+    {
+        fprintf(stderr, "Usage: ./hackasm [-d] <path-to-file>\n");
+        return 1;
     }
 
     // Initialize container which holds the contents of the assembly file.

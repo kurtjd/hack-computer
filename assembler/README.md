@@ -1,4 +1,4 @@
-# Hack Assembler/Disassembler
+# Hack Assembler
 This is a C implementation of an assembler/disassembler for the Hack machine language capable of handling symbols.
 
 Assembled files appear in out.hack and disassembled files appear in out.asm.

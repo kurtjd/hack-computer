@@ -147,6 +147,12 @@ typedef struct Program
 void program_init(Program *program)
 {
     program->assembly = calloc(PROGRAM_BUF_CHUNK, sizeof(char));
+    if (program->assembly == NULL)
+    {
+        fprintf(stderr, "Could not create program buffer.\n");
+        exit(1);
+    }
+
     program->size = PROGRAM_BUF_CHUNK * sizeof(char);
     program->lines = 0;
 }
@@ -162,6 +168,11 @@ void program_add_line(Program *program, char *line, size_t line_len)
     {
         program->size += PROGRAM_BUF_CHUNK;
         program->assembly = realloc(program->assembly, program->size);
+        if (program->assembly == NULL)
+        {
+            fprintf(stderr, "Unable to resize program buffer.\n");
+            exit(1);
+        }
     }
 }
 
@@ -264,6 +275,11 @@ bool first_pass(char *filename, Program *program, SymbolTable *symtbl)
 
     // Create space to store the binary conversion of program
     program->binary = calloc(program->size, sizeof(char));
+    if (program->binary == NULL)
+    {
+        fprintf(stderr, "Unable to create binary program buffer.\n");
+        clean_exit(program, 1);
+    }
 
     return true;
 }

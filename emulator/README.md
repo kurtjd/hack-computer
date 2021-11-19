@@ -1,5 +1,5 @@
 # Hack Emulator
-This is an emulator for the Hack computer implemenetd in C and SDL.
+This is an emulator for the Hack computer implemented in C and SDL.
 
 ## Requirements
 * C compiler

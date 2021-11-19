@@ -19,3 +19,6 @@ This repo simply exists to track and showcase my work on this project. If you ar
 
 ## Assembler
 See [Assembler README](assembler/README.md)
+
+## Emulator
+See [Emulator README](emulator/README.md)

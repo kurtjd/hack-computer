@@ -5,3 +5,4 @@ assembler/hackasm
 assembler/out.hack
 assembler/out.asm
 emulator/hackemu
+emulator/roms

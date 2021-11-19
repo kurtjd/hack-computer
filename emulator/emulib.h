@@ -14,6 +14,9 @@
  * 
  * The Hack platform also naturally assumes all data registers to be signed
  * hence the use of int16_t as opposed to uint16_t.
+ * 
+ * Finally, the Hack computer utilizes Harvard architecture hence the separated
+ * program and data memory.
  */
 typedef struct Hack
 {
@@ -35,10 +38,13 @@ typedef struct Hack
 // Initialize the machine
 void hack_init(Hack *machine);
 
+// Execute the instruction located by the program counter
+void hack_execute(Hack *machine);
+
 /* Load a file into the machine's ROM
  * Returns false if unable to open file
  */
-bool hack_load_rom(Hack *machine, char *filepath);
+bool hack_load_rom(Hack *machine, const char *filepath);
 
 // Prints the contents of the machine's ROM one instruction per line
-void hack_print_rom(Hack *machine);
+void hack_print_rom(const Hack *machine);

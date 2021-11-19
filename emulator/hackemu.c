@@ -25,7 +25,10 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    hack_print_rom(&machine);
+    while (machine.pc < machine.program_size)
+    {
+        hack_execute(&machine);
+    }
 
     return 0;
 }

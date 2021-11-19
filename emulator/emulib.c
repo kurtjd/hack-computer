@@ -3,30 +3,44 @@
 #include <string.h>
 #include "emulib.h"
 
-// Clear the display memory
-static void hack_clear_rom(Hack *machine)
+#define COMP_NUM_BITS 7
+#define COMP_START_BIT 3
+#define DEST_START_BIT 10
+#define JUMP_START_BIT 13
+
+// Clear the ROM
+static void hack_clear_rom(Hack *this)
 {
     for (int i = 0; i < ROM_SIZE; i++)
     {
-        strcpy(machine->rom[i], "0000000000000000");
+        strcpy(this->rom[i], "0000000000000000");
     }
 }
 
-// Clear the ROM
-static void hack_clear_display(Hack *machine)
+// Clear the display memory
+/*static void hack_clear_display(Hack *this)
 {
     for (int i = SCREEN_ADDR; i < KEYBD_ADDR; i++)
     {
-        machine->ram[i] = 0;
+        this->ram[i] = 0;
+    }
+}*/
+
+// Clear the RAM
+static void hack_clear_ram(Hack *this)
+{
+    for (int i = 0; i < RAM_SIZE; i++)
+    {
+        this->ram[i] = 0;
     }
 }
 
 // Calculate comp value
-static int16_t hack_calc_comp(const Hack *machine, const char *comp_bits)
+static int16_t hack_calc_comp(const Hack *this, const char *comp_bits)
 {
-    const int16_t A = machine->a_reg;
-    const int16_t D = machine->d_reg;
-    const int16_t M = machine->ram[machine->a_reg];
+    const int16_t A = this->a_reg;
+    const int16_t D = this->d_reg;
+    const int16_t M = this->ram[this->a_reg];
 
     if (strcmp(comp_bits, "0101010") == 0)
     {
@@ -146,39 +160,62 @@ static int16_t hack_calc_comp(const Hack *machine, const char *comp_bits)
     }
 }
 
-void hack_init(Hack *machine)
+void hack_init(Hack *this)
 {
-    machine->program_size = 0;
-    machine->pc = 0;
-    machine->ram[KEYBD_ADDR] = 0;
+    this->program_size = 0;
+    this->pc = 0;
+    this->ram[KEYBD_ADDR] = 0;
 
-    hack_clear_rom(machine);
-    hack_clear_display(machine);
+    hack_clear_rom(this);
+    hack_clear_ram(this);
 }
 
-void hack_execute(Hack *machine)
+void hack_execute(Hack *this)
 {
     // Fetch instruction from ROM and increment program counter
     char instruction[WORD_SIZE + 1];
-    strcpy(instruction, machine->rom[machine->pc++]);
+    strcpy(instruction, this->rom[this->pc++]);
 
-    // Handle an A instruction (which stores a number in the A register)
+    // Handle an A instruction
     if (instruction[0] == '0')
     {
-        // Convert the last 15 bits to a number
-        machine->a_reg = strtol(instruction + 1, NULL, 2);
+        // Convert the last 15 bits to a number and store in A register
+        this->a_reg = strtol(instruction + 1, NULL, 2);
     }
 
     // Handle a C instruction
     else
     {
+        // Compute a value
         char comp_bits[8] = {'\0'};
-        strncpy(comp_bits, instruction + 3, 7);
-        int16_t comp = hack_calc_comp(machine, comp_bits);
+        strncpy(comp_bits, instruction + COMP_START_BIT, COMP_NUM_BITS);
+        const int16_t comp = hack_calc_comp(this, comp_bits);
+
+        // Store computed value in appropriate destinations
+        if (instruction[DEST_START_BIT + 2] == '1')
+        {
+            this->ram[this->a_reg] = comp;
+        }
+        if (instruction[DEST_START_BIT + 1] == '1')
+        {
+            this->d_reg = comp;
+        }
+        if (instruction[DEST_START_BIT] == '1')
+        {
+            this->a_reg = comp;
+        }
+
+        // Decide if a jump should be performed
+        if ((instruction[JUMP_START_BIT] == '1' && comp < 0) ||
+            (instruction[JUMP_START_BIT + 1] == '1' && comp == 0) ||
+            (instruction[JUMP_START_BIT + 2] == '1' && comp > 0))
+        {
+            this->pc = this->a_reg;
+        }
     }
 }
 
-bool hack_load_rom(Hack *machine, const char *filepath)
+bool hack_load_rom(Hack *this, const char *filepath)
 {
     if (strlen(filepath) > FILENAME_MAX)
     {
@@ -200,20 +237,33 @@ bool hack_load_rom(Hack *machine, const char *filepath)
      * line but replace the newline character with a string terminator and
      * increase the program size.
      */
-    while (fgets(machine->rom[machine->program_size],
+    while (fgets(this->rom[this->program_size],
                  WORD_SIZE + 2, fp) != NULL)
     {
-        machine->rom[machine->program_size++][WORD_SIZE] = '\0';
+        this->rom[this->program_size++][WORD_SIZE] = '\0';
     }
 
     fclose(fp);
     return true;
 }
 
-void hack_print_rom(const Hack *machine)
+void hack_print_rom(const Hack *this)
 {
-    for (int i = 0; i < machine->program_size; i++)
+    for (int i = 0; i < this->program_size; i++)
     {
-        printf("%s\n", machine->rom[i]);
+        printf("%s\n", this->rom[i]);
+    }
+}
+
+void hack_print_ram(const Hack *this)
+{
+    for (int i = 0; i < RAM_SIZE; i++)
+    {
+        int16_t mem = this->ram[i];
+
+        if (mem)
+        {
+            printf("%d: %d\n", i, mem);
+        }
     }
 }

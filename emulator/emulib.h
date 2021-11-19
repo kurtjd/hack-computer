@@ -35,16 +35,19 @@ typedef struct Hack
     int16_t a_reg, d_reg, pc;
 } Hack;
 
-// Initialize the machine
-void hack_init(Hack *machine);
+// Initialize the this
+void hack_init(Hack *this);
 
 // Execute the instruction located by the program counter
-void hack_execute(Hack *machine);
+void hack_execute(Hack *this);
 
-/* Load a file into the machine's ROM
+/* Load a file into the this's ROM
  * Returns false if unable to open file
  */
-bool hack_load_rom(Hack *machine, const char *filepath);
+bool hack_load_rom(Hack *this, const char *filepath);
 
-// Prints the contents of the machine's ROM one instruction per line
-void hack_print_rom(const Hack *machine);
+// Prints the contents of the this's ROM one instruction per line
+void hack_print_rom(const Hack *this);
+
+// Prints RAM registers with values != 0
+void hack_print_ram(const Hack *this);

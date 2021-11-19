@@ -160,6 +160,12 @@ static int16_t hack_calc_comp(const Hack *this, const char *comp_bits)
     }
 }
 
+void hack_get_coords(int *x, int *y, int16_t addr)
+{
+    *x = addr % 32;
+    *y = (addr - SCREEN_ADDR) / 32;
+}
+
 void hack_init(Hack *this)
 {
     this->program_size = 0;

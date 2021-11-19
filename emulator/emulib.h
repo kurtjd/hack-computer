@@ -6,6 +6,8 @@
 #define WORD_SIZE 16
 #define SCREEN_ADDR 0x4000
 #define KEYBD_ADDR 0x6000
+#define DISPLAY_WIDTH 512
+#define DISPLAY_HEIGHT 256
 
 /* Hack is a 16-bit computer.
  * Therefore, the smallest piece of addressable memory is not a byte but a
@@ -34,6 +36,9 @@ typedef struct Hack
     // A (address), D, and program counter CPU registers
     int16_t a_reg, d_reg, pc;
 } Hack;
+
+// Gets an x and y coordinate from a screen address
+void hack_get_coords(int *x, int *y, int16_t addr);
 
 // Initialize the this
 void hack_init(Hack *this);

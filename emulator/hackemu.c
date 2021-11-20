@@ -78,43 +78,30 @@ int get_key(SDL_KeyCode key)
     {
     case SDLK_BACKSPACE:
         return HACK_KEY_BACKSPACE;
-        break;
     case SDLK_LEFT:
         return HACK_KEY_LEFT;
-        break;
     case SDLK_UP:
         return HACK_KEY_UP;
-        break;
     case SDLK_RIGHT:
         return HACK_KEY_RIGHT;
-        break;
     case SDLK_DOWN:
         return HACK_KEY_DOWN;
-        break;
     case SDLK_HOME:
         return HACK_KEY_HOME;
-        break;
     case SDLK_END:
         return HACK_KEY_END;
-        break;
     case SDLK_PAGEUP:
         return HACK_KEY_PAGEUP;
-        break;
     case SDLK_PAGEDOWN:
         return HACK_KEY_PAGEDOWN;
-        break;
     case SDLK_INSERT:
         return HACK_KEY_INSERT;
-        break;
     case SDLK_DELETE:
         return HACK_KEY_DELETE;
-        break;
     case SDLK_ESCAPE:
         return HACK_KEY_ESCAPE;
-        break;
     default:
         return key;
-        break;
     }
 }
 

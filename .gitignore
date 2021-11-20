@@ -6,3 +6,5 @@ assembler/out.hack
 assembler/out.asm
 emulator/hackemu
 emulator/roms
+vm_translator/hackvm
+vm_translator/vms

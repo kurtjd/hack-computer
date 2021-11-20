@@ -5,6 +5,8 @@
 #include "emulib.h"
 
 #define TITLE "Hack Emulator"
+#define FRAME_RATE 60
+#define CPU_FREQ 100
 #define ON_COLOR 0xFFFFFF
 #define OFF_COLOR 0x000000
 
@@ -149,10 +151,21 @@ int main(int argc, char **argv)
     }
 
     SDL_Event e;
-    while (handle_input(&machine, &e) && machine.pc < machine.program_size)
+    bool quit = false;
+    while (!quit && machine.pc < machine.program_size)
     {
-        hack_execute(&machine);
-        draw_display(&machine, window, surface);
+        // Cap execution speed
+        if (SDL_GetTicks() % (1000 / CPU_FREQ) <= 1)
+        {
+            hack_execute(&machine);
+        }
+
+        // Cap input/draw rate
+        if (SDL_GetTicks() % (1000 / FRAME_RATE) <= 1)
+        {
+            quit = !handle_input(&machine, &e);
+            draw_display(&machine, window, surface);
+        }
     }
 
     clean_exit(window, surface, 0);

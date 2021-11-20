@@ -1,3 +1,5 @@
+// TODO: Call poll event and draw display 60fps; Slow down CPU
+
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include "emulib.h"
@@ -64,7 +66,7 @@ void draw_display(const Hack *machine, SDL_Window *window, SDL_Surface *surface)
 }
 
 // Checks for key presses/releases and a quit event.
-bool handle_input(SDL_Event *e)
+bool handle_input(Hack *machine, SDL_Event *e)
 {
     while (SDL_PollEvent(e))
     {
@@ -72,6 +74,12 @@ bool handle_input(SDL_Event *e)
         {
         case SDL_QUIT:
             return false;
+            break;
+        case SDL_KEYDOWN:
+            machine->ram[KEYBD_ADDR] = e->key.keysym.sym;
+            break;
+        case SDL_KEYUP:
+            machine->ram[KEYBD_ADDR] = 0;
             break;
         }
     }
@@ -141,7 +149,7 @@ int main(int argc, char **argv)
     }
 
     SDL_Event e;
-    while (handle_input(&e) && machine.pc < machine.program_size)
+    while (handle_input(&machine, &e) && machine.pc < machine.program_size)
     {
         hack_execute(&machine);
         draw_display(&machine, window, surface);

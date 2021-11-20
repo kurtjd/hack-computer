@@ -1,2 +1,2 @@
 hackemu: hackemu.c emulib.c emulib.h
-	gcc hackemu.c emulib.c emulib.h -Wall -Wextra -Wpedantic -lSDL2 -o hackemu
+	gcc -O2 -g0 hackemu.c emulib.c emulib.h -Wall -Wextra -Wpedantic -lSDL2 -o hackemu

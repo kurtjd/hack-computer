@@ -8,12 +8,18 @@
 #define DEST_START_BIT 10
 #define JUMP_START_BIT 13
 
+// Retrives the nth most significant bit of a number
+static inline bool get_bit(uint16_t num, int i)
+{
+    return ((num << i) & 0x8000);
+}
+
 // Clear the ROM
 static void hack_clear_rom(Hack *this)
 {
     for (int i = 0; i < ROM_SIZE; i++)
     {
-        strcpy(this->rom[i], "0000000000000000");
+        this->rom[i] = 0;
     }
 }
 
@@ -36,131 +42,82 @@ static void hack_clear_ram(Hack *this)
 }
 
 // Calculate comp value
-static int16_t hack_calc_comp(const Hack *this, const char *comp_bits)
+static int hack_calc_comp(const Hack *this, uint16_t instruction)
 {
     const int16_t A = this->a_reg;
     const int16_t D = this->d_reg;
-    const int16_t M = this->ram[this->a_reg];
+    const int16_t M = this->ram[A];
 
-    if (strcmp(comp_bits, "0101010") == 0)
+    /* The comp bit ends at the 7th LSB so we shift the other LSBs off and since
+     * the comp bit starts at 10th MSB (after shift) we mask all the preceding
+     * MSBs.
+     */
+    const uint16_t comp_bits = (instruction >> 6) & 0x007F;
+
+    switch (comp_bits)
     {
+    case 0x2A:
         return 0;
-    }
-    else if (strcmp(comp_bits, "0111111") == 0)
-    {
+    case 0x3F:
         return 1;
-    }
-    else if (strcmp(comp_bits, "0111010") == 0)
-    {
+    case 0x3A:
         return -1;
-    }
-    else if (strcmp(comp_bits, "0001100") == 0)
-    {
+    case 0x0C:
         return D;
-    }
-    else if (strcmp(comp_bits, "0110000") == 0)
-    {
+    case 0x30:
         return A;
-    }
-    else if (strcmp(comp_bits, "0001101") == 0)
-    {
+    case 0x0D:
         return ~D;
-    }
-    else if (strcmp(comp_bits, "0110001") == 0)
-    {
+    case 0x31:
         return ~A;
-    }
-    else if (strcmp(comp_bits, "0001111") == 0)
-    {
+    case 0x0F:
         return -D;
-    }
-    else if (strcmp(comp_bits, "0110011") == 0)
-    {
+    case 0x33:
         return -A;
-    }
-    else if (strcmp(comp_bits, "0011111") == 0)
-    {
+    case 0x1F:
         return D + 1;
-    }
-    else if (strcmp(comp_bits, "0110111") == 0)
-    {
+    case 0x37:
         return A + 1;
-    }
-    else if (strcmp(comp_bits, "0001110") == 0)
-    {
+    case 0x0E:
         return D - 1;
-    }
-    else if (strcmp(comp_bits, "0110010") == 0)
-    {
+    case 0x32:
         return A - 1;
-    }
-    else if (strcmp(comp_bits, "0000010") == 0)
-    {
+    case 0x02:
         return D + A;
-    }
-    else if (strcmp(comp_bits, "0010011") == 0)
-    {
+    case 0x13:
         return D - A;
-    }
-    else if (strcmp(comp_bits, "0000111") == 0)
-    {
+    case 0x07:
         return A - D;
-    }
-    else if (strcmp(comp_bits, "0000000") == 0)
-    {
+    case 0x00:
         return D & A;
-    }
-    else if (strcmp(comp_bits, "0010101") == 0)
-    {
+    case 0x15:
         return D | A;
-    }
-    else if (strcmp(comp_bits, "1110000") == 0)
-    {
+    case 0x70:
         return M;
-    }
-    else if (strcmp(comp_bits, "1110001") == 0)
-    {
+    case 0x71:
         return ~M;
-    }
-    else if (strcmp(comp_bits, "1110011") == 0)
-    {
+    case 0x73:
         return -M;
-    }
-    else if (strcmp(comp_bits, "1110111") == 0)
-    {
+    case 0x77:
         return M + 1;
-    }
-    else if (strcmp(comp_bits, "1110010") == 0)
-    {
+    case 0x72:
         return M - 1;
-    }
-    else if (strcmp(comp_bits, "1000010") == 0)
-    {
+    case 0x42:
         return D + M;
-    }
-    else if (strcmp(comp_bits, "1010011") == 0)
-    {
+    case 0x53:
         return D - M;
-    }
-    else if (strcmp(comp_bits, "1000111") == 0)
-    {
+    case 0x47:
         return M - D;
-    }
-    else if (strcmp(comp_bits, "1000000") == 0)
-    {
+    case 0x40:
         return D & M;
-    }
-    else if (strcmp(comp_bits, "1010101") == 0)
-    {
+    case 0x55:
         return D | M;
-    }
-    else
-    {
+    default:
         return 0;
     }
 }
 
-void hack_get_coords(int *x, int *y, int16_t addr)
+void hack_get_coords(int *x, int *y, uint16_t addr)
 {
     *x = addr % 32;
     *y = (addr - SCREEN_ADDR) / 32;
@@ -179,42 +136,38 @@ void hack_init(Hack *this)
 void hack_execute(Hack *this)
 {
     // Fetch instruction from ROM and increment program counter
-    char instruction[WORD_SIZE + 1];
-    strcpy(instruction, this->rom[this->pc++]);
+    uint16_t instruction = this->rom[this->pc++];
 
     // Handle an A instruction
-    if (instruction[0] == '0')
+    if (!get_bit(instruction, 0))
     {
-        // Convert the last 15 bits to a number and store in A register
-        this->a_reg = strtol(instruction + 1, NULL, 2);
+        this->a_reg = instruction;
     }
 
     // Handle a C instruction
     else
     {
         // Compute a value
-        char comp_bits[8] = {'\0'};
-        strncpy(comp_bits, instruction + COMP_START_BIT, COMP_NUM_BITS);
-        const int16_t comp = hack_calc_comp(this, comp_bits);
+        const int comp = hack_calc_comp(this, instruction);
 
         // Store computed value in appropriate destinations
-        if (instruction[DEST_START_BIT + 2] == '1')
+        if (get_bit(instruction, DEST_START_BIT + 2))
         {
             this->ram[this->a_reg] = comp;
         }
-        if (instruction[DEST_START_BIT + 1] == '1')
+        if (get_bit(instruction, DEST_START_BIT + 1))
         {
             this->d_reg = comp;
         }
-        if (instruction[DEST_START_BIT] == '1')
+        if (get_bit(instruction, DEST_START_BIT))
         {
             this->a_reg = comp;
         }
 
         // Decide if a jump should be performed
-        if ((instruction[JUMP_START_BIT] == '1' && comp < 0) ||
-            (instruction[JUMP_START_BIT + 1] == '1' && comp == 0) ||
-            (instruction[JUMP_START_BIT + 2] == '1' && comp > 0))
+        if ((get_bit(instruction, JUMP_START_BIT) && comp < 0) ||
+            (get_bit(instruction, JUMP_START_BIT + 1) && comp == 0) ||
+            (get_bit(instruction, JUMP_START_BIT + 2) && comp > 0))
         {
             this->pc = this->a_reg;
         }
@@ -238,15 +191,14 @@ bool hack_load_rom(Hack *this, const char *filepath)
         return false;
     }
 
-    /* A hack ROM has one instruction per line, and since one instruction is 
-     * 16 "bits" (word size), a line has a total of 17 bytes. So we read in each
-     * line but replace the newline character with a string terminator and
-     * increase the program size.
+    /* A hack ROM is an ASCII file with one instruction per line, so we convert
+     * each line to an actual number before storing in emulator ROM.
      */
-    while (fgets(this->rom[this->program_size],
-                 WORD_SIZE + 2, fp) != NULL)
+    char line[WORD_SIZE + 2];
+    while (fgets(line, WORD_SIZE + 2, fp) != NULL)
     {
-        this->rom[this->program_size++][WORD_SIZE] = '\0';
+        line[WORD_SIZE] = '\0';
+        this->rom[this->program_size++] = strtol(line, NULL, 2);
     }
 
     fclose(fp);
@@ -257,7 +209,7 @@ void hack_print_rom(const Hack *this)
 {
     for (int i = 0; i < this->program_size; i++)
     {
-        printf("%s\n", this->rom[i]);
+        printf("0x%X\n", this->rom[i]);
     }
 }
 

@@ -2,7 +2,8 @@
 #include <stdbool.h>
 
 #define ROM_SIZE 32768
-#define RAM_SIZE 24577
+#define RAM_SIZE 32768
+//#define RAM_SIZE 24577
 #define WORD_SIZE 16
 #define SCREEN_ADDR 0x4000
 #define KEYBD_ADDR 0x6000
@@ -22,36 +23,33 @@
  */
 typedef struct Hack
 {
-    /* Read-only instruction memory.
-     * Since .hack ROMs are actually just ASCII files with character 1s and 0s,
-     * we keep the ROM in character format because it will actually make parsing
-     * opcodes easier in the future.
-     */
-    char rom[ROM_SIZE][WORD_SIZE + 1];
+    // Read-only instruction memory.
+    uint16_t rom[ROM_SIZE];
     int program_size;
 
     // Random-access memory
     int16_t ram[RAM_SIZE];
 
     // A (address), D, and program counter CPU registers
-    int16_t a_reg, d_reg, pc;
+    uint16_t pc;
+    int16_t a_reg, d_reg;
 } Hack;
 
 // Gets an x and y coordinate from a screen address
-void hack_get_coords(int *x, int *y, int16_t addr);
+void hack_get_coords(int *x, int *y, uint16_t addr);
 
-// Initialize the this
+// Initialize the machine
 void hack_init(Hack *this);
 
 // Execute the instruction located by the program counter
 void hack_execute(Hack *this);
 
-/* Load a file into the this's ROM
+/* Load a file into the machine's ROM
  * Returns false if unable to open file
  */
 bool hack_load_rom(Hack *this, const char *filepath);
 
-// Prints the contents of the this's ROM one instruction per line
+// Prints the contents of the machine's ROM one instruction per line
 void hack_print_rom(const Hack *this);
 
 // Prints RAM registers with values != 0

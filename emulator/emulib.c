@@ -17,25 +17,16 @@ static inline bool get_bit(uint16_t num, int i)
 // Clear the ROM
 static void hack_clear_rom(Hack *this)
 {
-    for (int i = 0; i < ROM_SIZE; i++)
+    for (int i = 0; i < MEM_SIZE; i++)
     {
         this->rom[i] = 0;
     }
 }
 
-// Clear the display memory
-/*static void hack_clear_display(Hack *this)
-{
-    for (int i = SCREEN_ADDR; i < KEYBD_ADDR; i++)
-    {
-        this->ram[i] = 0;
-    }
-}*/
-
 // Clear the RAM
 static void hack_clear_ram(Hack *this)
 {
-    for (int i = 0; i < RAM_SIZE; i++)
+    for (int i = 0; i < MEM_SIZE; i++)
     {
         this->ram[i] = 0;
     }
@@ -191,7 +182,7 @@ bool hack_load_rom(Hack *this, const char *filepath)
         return false;
     }
 
-    /* A hack ROM is an ASCII file with one instruction per line, so we convert
+    /* A Hack ROM is an ASCII file with one instruction per line, so we convert
      * each line to an actual number before storing in emulator ROM.
      */
     char line[WORD_SIZE + 2];
@@ -215,7 +206,7 @@ void hack_print_rom(const Hack *this)
 
 void hack_print_ram(const Hack *this)
 {
-    for (int i = 0; i < RAM_SIZE; i++)
+    for (int i = 0; i < MEM_SIZE; i++)
     {
         int16_t mem = this->ram[i];
 

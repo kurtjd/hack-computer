@@ -1,5 +1,3 @@
-// TODO: Call poll event and draw display 60fps; Slow down CPU
-
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include "emulib.h"

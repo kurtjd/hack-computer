@@ -1,9 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define ROM_SIZE 32768
-#define RAM_SIZE 32768
-//#define RAM_SIZE 24577
+#define MEM_SIZE 32768
 #define WORD_SIZE 16
 #define SCREEN_ADDR 0x4000
 #define KEYBD_ADDR 0x6000
@@ -24,11 +22,11 @@
 typedef struct Hack
 {
     // Read-only instruction memory.
-    uint16_t rom[ROM_SIZE];
+    uint16_t rom[MEM_SIZE];
     int program_size;
 
     // Random-access memory
-    int16_t ram[RAM_SIZE];
+    int16_t ram[MEM_SIZE];
 
     // A (address), D, and program counter CPU registers
     uint16_t pc;

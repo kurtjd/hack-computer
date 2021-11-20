@@ -1,4 +1,6 @@
 # Hack Emulator
+<img src = "HackEmulator.gif?raw=true">
+
 This is an emulator for the Hack computer implemented in C and SDL.
 
 ## Requirements

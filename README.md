@@ -20,5 +20,8 @@ This repo simply exists to track and showcase my work on this project. If you ar
 ## Assembler
 See [Assembler README](assembler/README.md)
 
+## VM Translator
+See [VM Translator README](vm_translator/README.md)
+
 ## Emulator
 See [Emulator README](emulator/README.md)

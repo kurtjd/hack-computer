@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <SDL2/SDL.h>
 #include "emulib.h"
 
@@ -65,6 +66,58 @@ void draw_display(const Hack *machine, SDL_Window *window, SDL_Surface *surface)
     SDL_UpdateWindowSurface(window);
 }
 
+// Returns the proper key for the emulator to handle
+int get_key(SDL_KeyCode key)
+{
+    if (key >= SDLK_F1 && key <= SDLK_F12)
+    {
+        return HACK_KEY_F + (key - SDLK_F1);
+    }
+
+    switch (key)
+    {
+    case SDLK_BACKSPACE:
+        return HACK_KEY_BACKSPACE;
+        break;
+    case SDLK_LEFT:
+        return HACK_KEY_LEFT;
+        break;
+    case SDLK_UP:
+        return HACK_KEY_UP;
+        break;
+    case SDLK_RIGHT:
+        return HACK_KEY_RIGHT;
+        break;
+    case SDLK_DOWN:
+        return HACK_KEY_DOWN;
+        break;
+    case SDLK_HOME:
+        return HACK_KEY_HOME;
+        break;
+    case SDLK_END:
+        return HACK_KEY_END;
+        break;
+    case SDLK_PAGEUP:
+        return HACK_KEY_PAGEUP;
+        break;
+    case SDLK_PAGEDOWN:
+        return HACK_KEY_PAGEDOWN;
+        break;
+    case SDLK_INSERT:
+        return HACK_KEY_INSERT;
+        break;
+    case SDLK_DELETE:
+        return HACK_KEY_DELETE;
+        break;
+    case SDLK_ESCAPE:
+        return HACK_KEY_ESCAPE;
+        break;
+    default:
+        return key;
+        break;
+    }
+}
+
 // Checks for key presses/releases and a quit event.
 bool handle_input(Hack *machine, SDL_Event *e)
 {
@@ -76,8 +129,10 @@ bool handle_input(Hack *machine, SDL_Event *e)
             return false;
             break;
         case SDL_KEYDOWN:
-            machine->ram[KEYBD_ADDR] = e->key.keysym.sym;
+        {
+            machine->ram[KEYBD_ADDR] = get_key(e->key.keysym.sym);
             break;
+        }
         case SDL_KEYUP:
             machine->ram[KEYBD_ADDR] = 0;
             break;

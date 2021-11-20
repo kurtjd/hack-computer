@@ -8,6 +8,23 @@
 #define DISPLAY_WIDTH 512
 #define DISPLAY_HEIGHT 256
 
+typedef enum
+{
+    HACK_KEY_BACKSPACE = 129,
+    HACK_KEY_LEFT,
+    HACK_KEY_UP,
+    HACK_KEY_RIGHT,
+    HACK_KEY_DOWN,
+    HACK_KEY_HOME,
+    HACK_KEY_END,
+    HACK_KEY_PAGEUP,
+    HACK_KEY_PAGEDOWN,
+    HACK_KEY_INSERT,
+    HACK_KEY_DELETE,
+    HACK_KEY_ESCAPE,
+    HACK_KEY_F
+} HACK_KEYS;
+
 /* Hack is a 16-bit computer.
  * Therefore, the smallest piece of addressable memory is not a byte but a
  * 16-bit word because the Hack platform offers no other means of addressing

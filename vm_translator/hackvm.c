@@ -1,12 +1,15 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 #include "stack.h"
 
 #define ASM_MAX_LINE 10
 #define ASM_LINE_BUF 128
 #define ASM_CHUNK_SIZE (ASM_LINE_BUF * ASM_MAX_LINE)
 #define ASM_SIZE (sizeof *(prog->data))
+
+#define VM_MAX_LINE 128
 #define VM_TRUE -1
 #define VM_FALSE 0
 
@@ -85,8 +88,81 @@ void asm_free(AsmProg *prog)
     prog->data = NULL;
 }
 
-int main(void)
+// Remove all comments from the line
+void trim_comments(char *line)
 {
+    for (size_t i = 0; i < strlen(line); i++)
+    {
+        if (line[i] == '/' && line[i + 1] == '/')
+        {
+            line[i] = '\0';
+            break;
+        }
+    }
+}
+
+// Check if line is empty
+bool line_is_empty(const char *line)
+{
+    while (*line != '\0')
+    {
+        if (!isspace(*line))
+        {
+            return false;
+        }
+
+        line++;
+    }
+
+    return true;
+}
+
+bool translate(const char *filename)
+{
+    FILE *fp = fopen(filename, "r");
+    if (fp == NULL)
+    {
+        fprintf(stderr, "Unable to open %s\n", filename);
+        return false;
+    }
+
+    char line[VM_MAX_LINE];
+    while (fgets(line, VM_MAX_LINE, fp) != NULL)
+    {
+        // Strip comments from line
+        trim_comments(line);
+
+        // Disregard blank lines
+        if (!line_is_empty(line))
+        {
+            printf("%s", line);
+        }
+    }
+
+    fclose(fp);
+    return true;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc != 2)
+    {
+        fprintf(stderr, "Usage: ./hackvm <path-to-file>\n");
+        return 1;
+    }
+    else
+    {
+        if (strlen(argv[1]) > FILENAME_MAX)
+        {
+            fprintf(stderr, "Filename too large.\n");
+            return 1;
+        }
+
+        if (!translate(argv[1]))
+        {
+            return 1;
+        }
+    }
 
     return 0;
 }

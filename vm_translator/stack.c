@@ -6,7 +6,11 @@
 
 void stack_free(Stack *stack)
 {
-    free(stack->data);
+    if (stack->data != NULL)
+    {
+        free(stack->data);
+    }
+
     stack->data = NULL;
 }
 

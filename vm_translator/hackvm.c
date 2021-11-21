@@ -1,7 +1,10 @@
 #include <stdio.h>
+#include <stdbool.h>
+#include "stack.h"
 
 int main(void)
 {
-    printf("hello, world\n");
+    Stack g_stack;
+
     return 0;
 }

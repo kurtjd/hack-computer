@@ -39,6 +39,23 @@ typedef struct AsmProg
     int line_count;
 } AsmProg;
 
+// Add a line of assembly
+void asm_add_line(AsmProg *prog, const char *line)
+{
+    sprintf(prog->data + strlen(prog->data), "%s\n", line);
+    prog->line_count++;
+
+    if ((prog->line_count % ASM_LINE_BUF) == 0)
+    {
+        prog->data = realloc(prog->data, ASM_SIZE + ASM_CHUNK_SIZE);
+        if (prog->data == NULL)
+        {
+            fprintf(stderr, "Unable to reallocate memory for assembly.\n");
+            exit(1);
+        }
+    }
+}
+
 // Initialize the assembly data
 bool asm_init(AsmProg *prog)
 {
@@ -51,24 +68,14 @@ bool asm_init(AsmProg *prog)
 
     *prog->data = '\0';
     prog->line_count = 0;
-    return true;
-}
 
-// Add a line of assembly
-bool asm_add_line(AsmProg *prog, const char *line)
-{
-    sprintf(prog->data + strlen(prog->data), "%s\n", line);
-    prog->line_count++;
-
-    if ((prog->line_count % ASM_LINE_BUF) == 0)
-    {
-        prog->data = realloc(prog->data, ASM_SIZE + ASM_CHUNK_SIZE);
-        if (prog->data == NULL)
-        {
-            fprintf(stderr, "Unable to reallocate memory for assembly.\n");
-            return false;
-        }
-    }
+    // Add code to initialize stack
+    asm_add_line(prog, "// Initialize stack");
+    asm_add_line(prog, "@256");
+    asm_add_line(prog, "D=A");
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "M=D");
+    asm_add_line(prog, "");
 
     return true;
 }
@@ -84,6 +91,34 @@ void asm_free(AsmProg *prog)
     prog->data = NULL;
 }
 
+// Adds instructions to push to stack
+void asm_push_stack(AsmProg *prog)
+{
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "M=M+1");
+    asm_add_line(prog, "A=M-1");
+    asm_add_line(prog, "M=D");
+}
+
+// Adds instructions to pop from stack
+void asm_pop_stack(AsmProg *prog)
+{
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "M=M-1");
+    asm_add_line(prog, "A=M");
+    asm_add_line(prog, "D=M");
+}
+
+// Adds instructions to pop two variables from stack
+void asm_pop_two(AsmProg *prog)
+{
+    asm_pop_stack(prog);
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "M=D");
+    asm_pop_stack(prog);
+    asm_add_line(prog, "@R13");
+}
+
 // Remove all comments from the line
 void trim_comments(char *line)
 {
@@ -95,6 +130,20 @@ void trim_comments(char *line)
             break;
         }
     }
+}
+
+// Remove newline characters from the line.
+void trim_nl(char *str)
+{
+    char buf[VM_MAX_LINE] = "";
+    for (size_t i = 0; i < strlen(str); i++)
+    {
+        if (str[i] != '\n' && str[i] != '\r')
+        {
+            buf[strlen(buf)] = str[i];
+        }
+    }
+    strcpy(str, buf);
 }
 
 // Check if line is empty
@@ -190,10 +239,7 @@ bool parse_push(AsmProg *prog, char *asm_line, const char *arg1,
     }
 
     // Push data onto stack
-    asm_add_line(prog, "@SP");
-    asm_add_line(prog, "M=M+1");
-    asm_add_line(prog, "A=M-1");
-    asm_add_line(prog, "M=D");
+    asm_push_stack(prog);
 
     return true;
 }
@@ -222,7 +268,7 @@ bool parse_pop(AsmProg *prog, char *asm_line, const char *arg1,
     }
     else if (strcmp(arg1, "that") == 0)
     {
-        sprintf(asm_line, "@ADD");
+        sprintf(asm_line, "@THAT");
         is_virtual = true;
     }
     else if (strcmp(arg1, "pointer") == 0)
@@ -252,10 +298,7 @@ bool parse_pop(AsmProg *prog, char *asm_line, const char *arg1,
     }
 
     // Pop stack value
-    asm_add_line(prog, "@SP");
-    asm_add_line(prog, "M=M-1");
-    asm_add_line(prog, "A=M");
-    asm_add_line(prog, "D=M");
+    asm_pop_stack(prog);
 
     // Get the address
     if (is_virtual)
@@ -289,6 +332,126 @@ bool parse_pop(AsmProg *prog, char *asm_line, const char *arg1,
     return true;
 }
 
+// Parse an 'add' instruction
+void parse_add(AsmProg *prog)
+{
+    asm_pop_two(prog);
+    asm_add_line(prog, "D=D+M");
+    asm_push_stack(prog);
+}
+
+// Parse a 'sub' instruction
+void parse_sub(AsmProg *prog)
+{
+    asm_pop_two(prog);
+    asm_add_line(prog, "D=D-M");
+    asm_push_stack(prog);
+}
+
+// Parse a 'neg' instruction
+void parse_neg(AsmProg *prog)
+{
+    asm_pop_stack(prog);
+    asm_add_line(prog, "D=-D");
+    asm_push_stack(prog);
+}
+
+// Parse an 'eq' instruction
+void parse_eq(AsmProg *prog, char *asm_line, int eq_count)
+{
+    asm_pop_two(prog);
+    asm_add_line(prog, "D=D-M");
+
+    sprintf(asm_line, "@EQ_%d", eq_count);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "D;JEQ");
+
+    asm_add_line(prog, "D=0");
+    sprintf(asm_line, "@END_EQ_%d", eq_count);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "0;JMP");
+
+    sprintf(asm_line, "(EQ_%d)", eq_count);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "D=-1");
+
+    sprintf(asm_line, "(END_EQ_%d)", eq_count);
+    asm_add_line(prog, asm_line);
+    asm_push_stack(prog);
+}
+
+// Parse a 'gt' instruction
+void parse_gt(AsmProg *prog, char *asm_line, int gt_count)
+{
+    asm_pop_two(prog);
+    asm_add_line(prog, "D=D-M");
+
+    sprintf(asm_line, "@GT_%d", gt_count);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "D;JGT");
+
+    asm_add_line(prog, "D=0");
+    sprintf(asm_line, "@END_GT_%d", gt_count);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "0;JMP");
+
+    sprintf(asm_line, "(GT_%d)", gt_count);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "D=-1");
+
+    sprintf(asm_line, "(END_GT_%d)", gt_count);
+    asm_add_line(prog, asm_line);
+    asm_push_stack(prog);
+}
+
+// Parse a 'lt' instruction
+void parse_lt(AsmProg *prog, char *asm_line, int lt_count)
+{
+    asm_pop_two(prog);
+    asm_add_line(prog, "D=D-M");
+
+    sprintf(asm_line, "@LT_%d", lt_count);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "D;JLT");
+
+    asm_add_line(prog, "D=0");
+    sprintf(asm_line, "@END_LT_%d", lt_count);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "0;JMP");
+
+    sprintf(asm_line, "(LT_%d)", lt_count);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "D=-1");
+
+    sprintf(asm_line, "(END_LT_%d)", lt_count);
+    asm_add_line(prog, asm_line);
+    asm_push_stack(prog);
+}
+
+// Parse an 'and' instruction
+void parse_and(AsmProg *prog)
+{
+    asm_pop_two(prog);
+    asm_add_line(prog, "D=D&M");
+    asm_push_stack(prog);
+}
+
+// Parse a 'or' instruction
+void parse_or(AsmProg *prog)
+{
+    asm_pop_two(prog);
+    asm_add_line(prog, "D=D|M");
+    asm_push_stack(prog);
+}
+
+// Parse a 'not' instruction
+void parse_not(AsmProg *prog)
+{
+    asm_pop_stack(prog);
+    asm_add_line(prog, "D=!D");
+    asm_push_stack(prog);
+}
+
 // Parses a line of VM code into Assembly code
 bool parse(char *line, AsmProg *prog)
 {
@@ -302,6 +465,7 @@ bool parse(char *line, AsmProg *prog)
     // Split the line into arguments based on a delimeter
     strcpy(temp_line, line);
     char *token = strtok(temp_line, VM_ARG_DELIM);
+
     int i = 0;
     while (token != NULL && i < VM_MAX_ARGS)
     {
@@ -313,18 +477,63 @@ bool parse(char *line, AsmProg *prog)
     sprintf(asm_line, "// %s", line);
     asm_add_line(prog, asm_line);
 
-    // Handle push
+    // Convert VM instructions into assembly
+    static int eq_count = 0;
+    static int gt_count = 0;
+    static int lt_count = 0;
+
     if (strcmp(args[0], "push") == 0)
     {
         parse_push(prog, asm_line, args[1], args[2]);
     }
-
-    // Handle pop
     else if (strcmp(args[0], "pop") == 0)
     {
         parse_pop(prog, asm_line, args[1], args[2]);
     }
+    else if (strcmp(args[0], "add") == 0)
+    {
+        parse_add(prog);
+    }
+    else if (strcmp(args[0], "sub") == 0)
+    {
+        parse_sub(prog);
+    }
+    else if (strcmp(args[0], "neg") == 0)
+    {
+        parse_neg(prog);
+    }
+    else if (strcmp(args[0], "eq") == 0)
+    {
+        parse_eq(prog, asm_line, eq_count++);
+    }
+    else if (strcmp(args[0], "gt") == 0)
+    {
+        parse_gt(prog, asm_line, gt_count++);
+    }
+    else if (strcmp(args[0], "lt") == 0)
+    {
+        parse_lt(prog, asm_line, lt_count++);
+    }
+    else if (strcmp(args[0], "and") == 0)
+    {
+        parse_and(prog);
+    }
+    else if (strcmp(args[0], "or") == 0)
+    {
+        parse_or(prog);
+    }
+    else if (strcmp(args[0], "not") == 0)
+    {
+        parse_not(prog);
+    }
+    else
+    {
+        fprintf(stderr, "Unrecognized instruction.\n");
+        return false;
+    }
 
+    // Add blank line for readability
+    asm_add_line(prog, "");
     return true;
 }
 
@@ -338,17 +547,20 @@ bool translate(const char *filename, AsmProg *prog)
         return false;
     }
 
-    char line[VM_MAX_LINE];
+    char line[VM_MAX_LINE] = {'\0'};
     while (fgets(line, VM_MAX_LINE, fp) != NULL)
     {
-        // Strip comments and \n from line
+        // Strip comments and newline characters
         trim_comments(line);
-        line[strlen(line) - 1] = '\0';
+        trim_nl(line);
 
         // Disregard blank lines
         if (!line_is_empty(line))
         {
-            parse(line, prog);
+            if (!parse(line, prog))
+            {
+                return false;
+            }
         }
     }
 
@@ -361,6 +573,22 @@ void clean_exit(AsmProg *prog)
 {
     asm_free(prog);
     exit(0);
+}
+
+// Writes assembly program to file
+bool gen_asm_file(AsmProg *prog)
+{
+    FILE *fp = fopen("out.asm", "w");
+    if (fp == NULL)
+    {
+        fprintf(stderr, "Unable to generate assembly file.\n");
+        return false;
+    }
+
+    fwrite(prog->data, strlen(prog->data), 1, fp);
+
+    fclose(fp);
+    return true;
 }
 
 int main(int argc, char **argv)
@@ -386,7 +614,10 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    printf("%s\n", prog.data);
+    if (!gen_asm_file(&prog))
+    {
+        clean_exit(&prog);
+    }
 
     clean_exit(&prog);
     return 0;

@@ -8,3 +8,4 @@ emulator/hackemu
 emulator/roms
 vm_translator/hackvm
 vm_translator/vms
+vm_translator/out.asm

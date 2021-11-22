@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
 #include <ctype.h>
-#include "stack.h"
 
 #define ASM_MAX_LINE 32
 #define ASM_LINE_BUF 128
@@ -332,123 +332,44 @@ bool parse_pop(AsmProg *prog, char *asm_line, const char *arg1,
     return true;
 }
 
-// Parse an 'add' instruction
-void parse_add(AsmProg *prog)
-{
-    asm_pop_two(prog);
-    asm_add_line(prog, "D=D+M");
-    asm_push_stack(prog);
-}
-
-// Parse a 'sub' instruction
-void parse_sub(AsmProg *prog)
+// Parse a comparison instruction
+void parse_cmp(AsmProg *prog, const char *cmp, char *asm_line, int count)
 {
     asm_pop_two(prog);
     asm_add_line(prog, "D=D-M");
+
+    sprintf(asm_line, "@%s_%d", cmp, count);
+    asm_add_line(prog, asm_line);
+    sprintf(asm_line, "D;J%s", cmp);
+    asm_add_line(prog, asm_line);
+
+    asm_add_line(prog, "D=0");
+    sprintf(asm_line, "@END_%s_%d", cmp, count);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "0;JMP");
+
+    sprintf(asm_line, "(%s_%d)", cmp, count);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "D=-1");
+
+    sprintf(asm_line, "(END_%s_%d)", cmp, count);
+    asm_add_line(prog, asm_line);
     asm_push_stack(prog);
 }
 
-// Parse a 'neg' instruction
-void parse_neg(AsmProg *prog)
+// Parse a unary (one operand) instruction
+void parse_unary(AsmProg *prog, const char *instr)
 {
     asm_pop_stack(prog);
-    asm_add_line(prog, "D=-D");
+    asm_add_line(prog, instr);
     asm_push_stack(prog);
 }
 
-// Parse an 'eq' instruction
-void parse_eq(AsmProg *prog, char *asm_line, int eq_count)
+// Parse a binary (two operand) instruction
+void parse_binary(AsmProg *prog, const char *instr)
 {
     asm_pop_two(prog);
-    asm_add_line(prog, "D=D-M");
-
-    sprintf(asm_line, "@EQ_%d", eq_count);
-    asm_add_line(prog, asm_line);
-    asm_add_line(prog, "D;JEQ");
-
-    asm_add_line(prog, "D=0");
-    sprintf(asm_line, "@END_EQ_%d", eq_count);
-    asm_add_line(prog, asm_line);
-    asm_add_line(prog, "0;JMP");
-
-    sprintf(asm_line, "(EQ_%d)", eq_count);
-    asm_add_line(prog, asm_line);
-    asm_add_line(prog, "D=-1");
-
-    sprintf(asm_line, "(END_EQ_%d)", eq_count);
-    asm_add_line(prog, asm_line);
-    asm_push_stack(prog);
-}
-
-// Parse a 'gt' instruction
-void parse_gt(AsmProg *prog, char *asm_line, int gt_count)
-{
-    asm_pop_two(prog);
-    asm_add_line(prog, "D=D-M");
-
-    sprintf(asm_line, "@GT_%d", gt_count);
-    asm_add_line(prog, asm_line);
-    asm_add_line(prog, "D;JGT");
-
-    asm_add_line(prog, "D=0");
-    sprintf(asm_line, "@END_GT_%d", gt_count);
-    asm_add_line(prog, asm_line);
-    asm_add_line(prog, "0;JMP");
-
-    sprintf(asm_line, "(GT_%d)", gt_count);
-    asm_add_line(prog, asm_line);
-    asm_add_line(prog, "D=-1");
-
-    sprintf(asm_line, "(END_GT_%d)", gt_count);
-    asm_add_line(prog, asm_line);
-    asm_push_stack(prog);
-}
-
-// Parse a 'lt' instruction
-void parse_lt(AsmProg *prog, char *asm_line, int lt_count)
-{
-    asm_pop_two(prog);
-    asm_add_line(prog, "D=D-M");
-
-    sprintf(asm_line, "@LT_%d", lt_count);
-    asm_add_line(prog, asm_line);
-    asm_add_line(prog, "D;JLT");
-
-    asm_add_line(prog, "D=0");
-    sprintf(asm_line, "@END_LT_%d", lt_count);
-    asm_add_line(prog, asm_line);
-    asm_add_line(prog, "0;JMP");
-
-    sprintf(asm_line, "(LT_%d)", lt_count);
-    asm_add_line(prog, asm_line);
-    asm_add_line(prog, "D=-1");
-
-    sprintf(asm_line, "(END_LT_%d)", lt_count);
-    asm_add_line(prog, asm_line);
-    asm_push_stack(prog);
-}
-
-// Parse an 'and' instruction
-void parse_and(AsmProg *prog)
-{
-    asm_pop_two(prog);
-    asm_add_line(prog, "D=D&M");
-    asm_push_stack(prog);
-}
-
-// Parse a 'or' instruction
-void parse_or(AsmProg *prog)
-{
-    asm_pop_two(prog);
-    asm_add_line(prog, "D=D|M");
-    asm_push_stack(prog);
-}
-
-// Parse a 'not' instruction
-void parse_not(AsmProg *prog)
-{
-    asm_pop_stack(prog);
-    asm_add_line(prog, "D=!D");
+    asm_add_line(prog, instr);
     asm_push_stack(prog);
 }
 
@@ -492,39 +413,39 @@ bool parse(char *line, AsmProg *prog)
     }
     else if (strcmp(args[0], "add") == 0)
     {
-        parse_add(prog);
+        parse_binary(prog, "D=D+M");
     }
     else if (strcmp(args[0], "sub") == 0)
     {
-        parse_sub(prog);
+        parse_binary(prog, "D=D-M");
     }
     else if (strcmp(args[0], "neg") == 0)
     {
-        parse_neg(prog);
+        parse_unary(prog, "D=-D");
     }
     else if (strcmp(args[0], "eq") == 0)
     {
-        parse_eq(prog, asm_line, eq_count++);
+        parse_cmp(prog, "EQ", asm_line, eq_count++);
     }
     else if (strcmp(args[0], "gt") == 0)
     {
-        parse_gt(prog, asm_line, gt_count++);
+        parse_cmp(prog, "GT", asm_line, gt_count++);
     }
     else if (strcmp(args[0], "lt") == 0)
     {
-        parse_lt(prog, asm_line, lt_count++);
+        parse_cmp(prog, "LT", asm_line, lt_count++);
     }
     else if (strcmp(args[0], "and") == 0)
     {
-        parse_and(prog);
+        parse_binary(prog, "D=D&M");
     }
     else if (strcmp(args[0], "or") == 0)
     {
-        parse_or(prog);
+        parse_binary(prog, "D=D|M");
     }
     else if (strcmp(args[0], "not") == 0)
     {
-        parse_not(prog);
+        parse_unary(prog, "D=!D");
     }
     else
     {

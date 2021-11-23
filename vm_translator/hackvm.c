@@ -1,4 +1,4 @@
-// TODO: Replace Static with filename
+// TODO: Replace Filename with actual filename
 // TODO: Allow translate multiple VM files
 #include <stdio.h>
 #include <stdbool.h>
@@ -218,13 +218,13 @@ bool parse_push(AsmProg *prog, const char *arg1, const char *arg2)
     }
     else if (strcmp(arg1, "constant") == 0)
     {
-        asm_add_line(prog, "@%d", atoi(arg2));
+        asm_add_line(prog, "@%s", arg2);
         asm_add_line(prog, "D=A");
         is_const = true;
     }
     else if (strcmp(arg1, "static") == 0)
     {
-        asm_add_line(prog, "@Static.%d", atoi(arg2));
+        asm_add_line(prog, "@Filename.%s", arg2);
     }
     else
     {
@@ -238,7 +238,7 @@ bool parse_push(AsmProg *prog, const char *arg1, const char *arg2)
         asm_add_line(prog, "D=M");
         if (is_virtual)
         {
-            asm_add_line(prog, "@%d", atoi(arg2));
+            asm_add_line(prog, "@%s", arg2);
             asm_add_line(prog, "A=D+A");
             asm_add_line(prog, "D=M");
         }
@@ -295,7 +295,7 @@ bool parse_pop(AsmProg *prog, const char *arg1, const char *arg2)
     }
     else if (strcmp(arg1, "static") == 0)
     {
-        sprintf(asm_line, "@Static.%d", atoi(arg2));
+        sprintf(asm_line, "@Filename.%s", arg2);
     }
     else
     {
@@ -314,7 +314,7 @@ bool parse_pop(AsmProg *prog, const char *arg1, const char *arg2)
         asm_add_line(prog, asm_line);
 
         asm_add_line(prog, "D=M");
-        asm_add_line(prog, "@%d", atoi(arg2));
+        asm_add_line(prog, "@%s", arg2);
         asm_add_line(prog, "D=D+A");
 
         asm_add_line(prog, "@R14");
@@ -397,7 +397,19 @@ void parse_if_goto(AsmProg *prog, const char *label)
 // Parse a function creation instruction
 void parse_function(AsmProg *prog, const char *func_name, const char *nvars)
 {
-    asm_add_line(prog, "(%s)", func_name);
+    asm_add_line(prog, "(Filename.%s)", func_name);
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "M=%s", nvars);
+    asm_add_line(prog, "(Filename.%s.Lcl)", func_name);
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "M=M-1");
+    asm_add_line(prog, "@Filename.%s.LclEnd", func_name);
+    asm_add_line(prog, "M;JLT");
+    asm_add_line(prog, "D=0");
+    asm_push_stack(prog);
+    asm_add_line(prog, "@(Filename.%s.Lcl)", func_name);
+    asm_add_line(prog, "0;JMP");
+    asm_add_line(prog, "(Filename.%s.LclEnd)", func_name);
 }
 
 // Parse a function call instruction

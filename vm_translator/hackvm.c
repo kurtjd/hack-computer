@@ -1,3 +1,5 @@
+// TODO: Replace Static with filename
+// TODO: Allow translate multiple VM files
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -373,6 +375,30 @@ void parse_binary(AsmProg *prog, const char *instr)
     asm_push_stack(prog);
 }
 
+// Parse a label instruction
+void parse_label(AsmProg *prog, char *asm_line, const char *label)
+{
+    sprintf(asm_line, "(%s)", label);
+    asm_add_line(prog, asm_line);
+}
+
+// Parse a goto instruction
+void parse_goto(AsmProg *prog, char *asm_line, const char *label)
+{
+    sprintf(asm_line, "@%s", label);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "0;JMP");
+}
+
+// Parse an if-goto instruction
+void parse_if_goto(AsmProg *prog, char *asm_line, const char *label)
+{
+    asm_pop_stack(prog);
+    sprintf(asm_line, "@%s", label);
+    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "D;JNE");
+}
+
 // Parses a line of VM code into Assembly code
 bool parse(char *line, AsmProg *prog)
 {
@@ -403,6 +429,7 @@ bool parse(char *line, AsmProg *prog)
     static int gt_count = 0;
     static int lt_count = 0;
 
+    // Memory
     if (strcmp(args[0], "push") == 0)
     {
         parse_push(prog, asm_line, args[1], args[2]);
@@ -411,6 +438,8 @@ bool parse(char *line, AsmProg *prog)
     {
         parse_pop(prog, asm_line, args[1], args[2]);
     }
+
+    // Arithmetic
     else if (strcmp(args[0], "add") == 0)
     {
         parse_binary(prog, "D=D+M");
@@ -423,6 +452,8 @@ bool parse(char *line, AsmProg *prog)
     {
         parse_unary(prog, "D=-D");
     }
+
+    // Comparison
     else if (strcmp(args[0], "eq") == 0)
     {
         parse_cmp(prog, "EQ", asm_line, eq_count++);
@@ -435,6 +466,8 @@ bool parse(char *line, AsmProg *prog)
     {
         parse_cmp(prog, "LT", asm_line, lt_count++);
     }
+
+    // Logical
     else if (strcmp(args[0], "and") == 0)
     {
         parse_binary(prog, "D=D&M");
@@ -447,6 +480,22 @@ bool parse(char *line, AsmProg *prog)
     {
         parse_unary(prog, "D=!D");
     }
+
+    // Branching
+    else if (strcmp(args[0], "label") == 0)
+    {
+        parse_label(prog, asm_line, args[1]);
+    }
+    else if (strcmp(args[0], "goto") == 0)
+    {
+        parse_goto(prog, asm_line, args[1]);
+    }
+    else if (strcmp(args[0], "if-goto") == 0)
+    {
+        parse_if_goto(prog, asm_line, args[1]);
+    }
+
+    // Functions
     else
     {
         fprintf(stderr, "Unrecognized instruction.\n");

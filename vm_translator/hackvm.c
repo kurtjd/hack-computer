@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <stdarg.h>
 
 #define ASM_MAX_LINE 32
 #define ASM_LINE_BUF 128
@@ -42,9 +43,17 @@ typedef struct AsmProg
 } AsmProg;
 
 // Add a line of assembly
-void asm_add_line(AsmProg *prog, const char *line)
+void asm_add_line(AsmProg *prog, const char *format, ...)
 {
-    sprintf(prog->data + strlen(prog->data), "%s\n", line);
+    char line[ASM_MAX_LINE];
+    sprintf(line, "%s\n", format);
+
+    // Allow for variable arguments making it easier to compose asm instructions
+    va_list args;
+    va_start(args, format);
+    vsprintf(prog->data + strlen(prog->data), line, args);
+    va_end(args);
+
     prog->line_count++;
 
     if ((prog->line_count % ASM_LINE_BUF) == 0)
@@ -73,7 +82,7 @@ bool asm_init(AsmProg *prog)
 
     // Add code to initialize stack
     asm_add_line(prog, "// Initialize stack");
-    asm_add_line(prog, "@256");
+    asm_add_line(prog, "@%d", STACK_START_ADDR);
     asm_add_line(prog, "D=A");
     asm_add_line(prog, "@SP");
     asm_add_line(prog, "M=D");
@@ -165,8 +174,7 @@ bool line_is_empty(const char *line)
 }
 
 // Parse a 'push' instruction
-bool parse_push(AsmProg *prog, char *asm_line, const char *arg1,
-                const char *arg2)
+bool parse_push(AsmProg *prog, const char *arg1, const char *arg2)
 {
     bool is_virtual = false;
     bool is_const = false;
@@ -206,20 +214,17 @@ bool parse_push(AsmProg *prog, char *asm_line, const char *arg1,
     }
     else if (strcmp(arg1, "temp") == 0)
     {
-        sprintf(asm_line, "@%d", TEMP_START_ADDR + atoi(arg2));
-        asm_add_line(prog, asm_line);
+        asm_add_line(prog, "@%d", TEMP_START_ADDR + atoi(arg2));
     }
     else if (strcmp(arg1, "constant") == 0)
     {
-        sprintf(asm_line, "@%d", atoi(arg2));
-        asm_add_line(prog, asm_line);
+        asm_add_line(prog, "@%d", atoi(arg2));
         asm_add_line(prog, "D=A");
         is_const = true;
     }
     else if (strcmp(arg1, "static") == 0)
     {
-        sprintf(asm_line, "@Static.%d", atoi(arg2));
-        asm_add_line(prog, asm_line);
+        asm_add_line(prog, "@Static.%d", atoi(arg2));
     }
     else
     {
@@ -233,8 +238,7 @@ bool parse_push(AsmProg *prog, char *asm_line, const char *arg1,
         asm_add_line(prog, "D=M");
         if (is_virtual)
         {
-            sprintf(asm_line, "@%d", atoi(arg2));
-            asm_add_line(prog, asm_line);
+            asm_add_line(prog, "@%d", atoi(arg2));
             asm_add_line(prog, "A=D+A");
             asm_add_line(prog, "D=M");
         }
@@ -247,9 +251,9 @@ bool parse_push(AsmProg *prog, char *asm_line, const char *arg1,
 }
 
 // Parse a 'pop' instruction
-bool parse_pop(AsmProg *prog, char *asm_line, const char *arg1,
-               const char *arg2)
+bool parse_pop(AsmProg *prog, const char *arg1, const char *arg2)
 {
+    char asm_line[ASM_MAX_LINE];
     bool is_virtual = false;
 
     // Figure out which address to store data
@@ -310,8 +314,7 @@ bool parse_pop(AsmProg *prog, char *asm_line, const char *arg1,
         asm_add_line(prog, asm_line);
 
         asm_add_line(prog, "D=M");
-        sprintf(asm_line, "@%d", atoi(arg2));
-        asm_add_line(prog, asm_line);
+        asm_add_line(prog, "@%d", atoi(arg2));
         asm_add_line(prog, "D=D+A");
 
         asm_add_line(prog, "@R14");
@@ -335,27 +338,22 @@ bool parse_pop(AsmProg *prog, char *asm_line, const char *arg1,
 }
 
 // Parse a comparison instruction
-void parse_cmp(AsmProg *prog, const char *cmp, char *asm_line, int count)
+void parse_cmp(AsmProg *prog, const char *cmp, int count)
 {
     asm_pop_two(prog);
     asm_add_line(prog, "D=D-M");
 
-    sprintf(asm_line, "@%s_%d", cmp, count);
-    asm_add_line(prog, asm_line);
-    sprintf(asm_line, "D;J%s", cmp);
-    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "@%s_%d", cmp, count);
+    asm_add_line(prog, "D;J%s", cmp);
 
     asm_add_line(prog, "D=0");
-    sprintf(asm_line, "@END_%s_%d", cmp, count);
-    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "@END_%s_%d", cmp, count);
     asm_add_line(prog, "0;JMP");
 
-    sprintf(asm_line, "(%s_%d)", cmp, count);
-    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "(%s_%d)", cmp, count);
     asm_add_line(prog, "D=-1");
 
-    sprintf(asm_line, "(END_%s_%d)", cmp, count);
-    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "(END_%s_%d)", cmp, count);
     asm_push_stack(prog);
 }
 
@@ -376,27 +374,44 @@ void parse_binary(AsmProg *prog, const char *instr)
 }
 
 // Parse a label instruction
-void parse_label(AsmProg *prog, char *asm_line, const char *label)
+void parse_label(AsmProg *prog, const char *label)
 {
-    sprintf(asm_line, "(%s)", label);
-    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "(%s)", label);
 }
 
 // Parse a goto instruction
-void parse_goto(AsmProg *prog, char *asm_line, const char *label)
+void parse_goto(AsmProg *prog, const char *label)
 {
-    sprintf(asm_line, "@%s", label);
-    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "@%s", label);
     asm_add_line(prog, "0;JMP");
 }
 
 // Parse an if-goto instruction
-void parse_if_goto(AsmProg *prog, char *asm_line, const char *label)
+void parse_if_goto(AsmProg *prog, const char *label)
 {
     asm_pop_stack(prog);
-    sprintf(asm_line, "@%s", label);
-    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "@%s", label);
     asm_add_line(prog, "D;JNE");
+}
+
+// Parse a function creation instruction
+void parse_function(AsmProg *prog, const char *func_name, const char *nvars)
+{
+    asm_add_line(prog, "(%s)", func_name);
+}
+
+// Parse a function call instruction
+void parse_call(AsmProg *prog, const char *func_name, const char *nargs)
+{
+    (void)prog;
+    (void)func_name;
+    (void)nargs;
+}
+
+// Parse a function return instruction
+void parse_return(AsmProg *prog)
+{
+    (void)prog;
 }
 
 // Parses a line of VM code into Assembly code
@@ -406,7 +421,6 @@ bool parse(char *line, AsmProg *prog)
      * arguments)
      */
     char args[VM_MAX_ARGS][VM_MAX_ARG_LEN] = {'\0'};
-    char asm_line[ASM_MAX_LINE];
     char temp_line[VM_MAX_LINE];
 
     // Split the line into arguments based on a delimeter
@@ -421,8 +435,7 @@ bool parse(char *line, AsmProg *prog)
     }
 
     // Add a comment to the asm notating the VM instruction
-    sprintf(asm_line, "// %s", line);
-    asm_add_line(prog, asm_line);
+    asm_add_line(prog, "// %s", line);
 
     // Convert VM instructions into assembly
     static int eq_count = 0;
@@ -432,11 +445,11 @@ bool parse(char *line, AsmProg *prog)
     // Memory
     if (strcmp(args[0], "push") == 0)
     {
-        parse_push(prog, asm_line, args[1], args[2]);
+        parse_push(prog, args[1], args[2]);
     }
     else if (strcmp(args[0], "pop") == 0)
     {
-        parse_pop(prog, asm_line, args[1], args[2]);
+        parse_pop(prog, args[1], args[2]);
     }
 
     // Arithmetic
@@ -456,15 +469,15 @@ bool parse(char *line, AsmProg *prog)
     // Comparison
     else if (strcmp(args[0], "eq") == 0)
     {
-        parse_cmp(prog, "EQ", asm_line, eq_count++);
+        parse_cmp(prog, "EQ", eq_count++);
     }
     else if (strcmp(args[0], "gt") == 0)
     {
-        parse_cmp(prog, "GT", asm_line, gt_count++);
+        parse_cmp(prog, "GT", gt_count++);
     }
     else if (strcmp(args[0], "lt") == 0)
     {
-        parse_cmp(prog, "LT", asm_line, lt_count++);
+        parse_cmp(prog, "LT", lt_count++);
     }
 
     // Logical
@@ -484,18 +497,30 @@ bool parse(char *line, AsmProg *prog)
     // Branching
     else if (strcmp(args[0], "label") == 0)
     {
-        parse_label(prog, asm_line, args[1]);
+        parse_label(prog, args[1]);
     }
     else if (strcmp(args[0], "goto") == 0)
     {
-        parse_goto(prog, asm_line, args[1]);
+        parse_goto(prog, args[1]);
     }
     else if (strcmp(args[0], "if-goto") == 0)
     {
-        parse_if_goto(prog, asm_line, args[1]);
+        parse_if_goto(prog, args[1]);
     }
 
     // Functions
+    else if (strcmp(args[0], "function") == 0)
+    {
+        parse_function(prog, args[1], args[2]);
+    }
+    else if (strcmp(args[0], "call") == 0)
+    {
+        parse_call(prog, args[1], args[2]);
+    }
+    else if (strcmp(args[0], "return") == 0)
+    {
+        parse_return(prog);
+    }
     else
     {
         fprintf(stderr, "Unrecognized instruction.\n");

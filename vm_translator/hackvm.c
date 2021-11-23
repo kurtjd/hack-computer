@@ -1,4 +1,5 @@
 // TODO: Replace Filename with actual filename
+// TODO: Increment function return labels
 // TODO: Allow translate multiple VM files
 #include <stdio.h>
 #include <stdbool.h>
@@ -397,6 +398,7 @@ void parse_if_goto(AsmProg *prog, const char *label)
 // Parse a function creation instruction
 void parse_function(AsmProg *prog, const char *func_name, const char *nvars)
 {
+    // Initialize nvars local variables to zero
     asm_add_line(prog, "(Filename.%s)", func_name);
     asm_add_line(prog, "@R13");
     asm_add_line(prog, "M=%s", nvars);
@@ -415,9 +417,56 @@ void parse_function(AsmProg *prog, const char *func_name, const char *nvars)
 // Parse a function call instruction
 void parse_call(AsmProg *prog, const char *func_name, const char *nargs)
 {
-    (void)prog;
-    (void)func_name;
-    (void)nargs;
+    char ret[ASM_MAX_LINE];
+    sprintf(ret, "Filename.%s$ret.%d", func_name, 0);
+
+    // Generate return label
+    asm_add_line(prog, "@%s", ret);
+    asm_add_line(prog, "D=A");
+    asm_push_stack(prog);
+
+    // Push LCL to stack
+    asm_add_line(prog, "@LCL");
+    asm_add_line(prog, "D=A");
+    asm_push_stack(prog);
+
+    // Push ARG to stack
+    asm_add_line(prog, "@ARG");
+    asm_add_line(prog, "D=A");
+    asm_push_stack(prog);
+
+    // Push THIS to stack
+    asm_add_line(prog, "@THIS");
+    asm_add_line(prog, "D=A");
+    asm_push_stack(prog);
+
+    // Push THAT to stack
+    asm_add_line(prog, "@THAT");
+    asm_add_line(prog, "D=A");
+    asm_push_stack(prog);
+
+    // Reposition ARG
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@5");
+    asm_add_line(prog, "D=D-A");
+    asm_add_line(prog, "@%s", nargs);
+    asm_add_line(prog, "D=D-A");
+    asm_add_line(prog, "@ARG");
+    asm_add_line(prog, "M=D");
+
+    // Reposition LCL
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@LCL");
+    asm_add_line(prog, "M=D");
+
+    // Call function
+    asm_add_line(prog, "@Filename.%s", func_name);
+    asm_add_line(prog, "0;JMP");
+
+    // Inject return address
+    asm_add_line(prog, "(%s)", ret);
 }
 
 // Parse a function return instruction

@@ -1,5 +1,3 @@
-// TODO: Replace Filename with actual filename
-// TODO: Increment function return labels
 // TODO: Allow translate multiple VM files
 #include <stdio.h>
 #include <stdbool.h>
@@ -8,14 +6,14 @@
 #include <ctype.h>
 #include <stdarg.h>
 
-#define ASM_MAX_LINE 32
+#define ASM_MAX_LINE (FILENAME_MAX + 128)
 #define ASM_LINE_BUF 128
 #define ASM_CHUNK_SIZE (ASM_LINE_BUF * ASM_MAX_LINE)
 #define ASM_SIZE (sizeof *(prog->data))
 
 #define VM_MAX_LINE 128
 #define VM_MAX_ARGS 3
-#define VM_MAX_ARG_LEN 16
+#define VM_MAX_ARG_LEN 64
 #define VM_ARG_DELIM " "
 #define VM_TRUE -1
 #define VM_FALSE 0
@@ -43,6 +41,25 @@ typedef struct AsmProg
     int line_count;
 } AsmProg;
 
+// The loaded file's name. Global because it should never change.
+char FILENAME[FILENAME_MAX];
+
+// Initialize the assembly data
+bool asm_init(AsmProg *prog)
+{
+    prog->data = malloc(ASM_CHUNK_SIZE);
+    if (prog->data == NULL)
+    {
+        fprintf(stderr, "Unable to allocate memory for assembly.\n");
+        return false;
+    }
+
+    *prog->data = '\0';
+    prog->line_count = 0;
+
+    return true;
+}
+
 // Add a line of assembly
 void asm_add_line(AsmProg *prog, const char *format, ...)
 {
@@ -66,30 +83,6 @@ void asm_add_line(AsmProg *prog, const char *format, ...)
             exit(1);
         }
     }
-}
-
-// Initialize the assembly data
-bool asm_init(AsmProg *prog)
-{
-    prog->data = malloc(ASM_CHUNK_SIZE);
-    if (prog->data == NULL)
-    {
-        fprintf(stderr, "Unable to allocate memory for assembly.\n");
-        return false;
-    }
-
-    *prog->data = '\0';
-    prog->line_count = 0;
-
-    // Add code to initialize stack
-    asm_add_line(prog, "// Initialize stack");
-    asm_add_line(prog, "@%d", STACK_START_ADDR);
-    asm_add_line(prog, "D=A");
-    asm_add_line(prog, "@SP");
-    asm_add_line(prog, "M=D");
-    asm_add_line(prog, "");
-
-    return true;
 }
 
 // Free the assembly data
@@ -225,7 +218,7 @@ bool parse_push(AsmProg *prog, const char *arg1, const char *arg2)
     }
     else if (strcmp(arg1, "static") == 0)
     {
-        asm_add_line(prog, "@Filename.%s", arg2);
+        asm_add_line(prog, "@%s.%s", FILENAME, arg2);
     }
     else
     {
@@ -296,7 +289,7 @@ bool parse_pop(AsmProg *prog, const char *arg1, const char *arg2)
     }
     else if (strcmp(arg1, "static") == 0)
     {
-        sprintf(asm_line, "@Filename.%s", arg2);
+        sprintf(asm_line, "@%s.%s", FILENAME, arg2);
     }
     else
     {
@@ -399,26 +392,30 @@ void parse_if_goto(AsmProg *prog, const char *label)
 void parse_function(AsmProg *prog, const char *func_name, const char *nvars)
 {
     // Initialize nvars local variables to zero
-    asm_add_line(prog, "(Filename.%s)", func_name);
+    asm_add_line(prog, "(%s)", func_name);
+    asm_add_line(prog, "@%s", nvars);
+    asm_add_line(prog, "D=A");
     asm_add_line(prog, "@R13");
-    asm_add_line(prog, "M=%s", nvars);
-    asm_add_line(prog, "(Filename.%s.Lcl)", func_name);
+    asm_add_line(prog, "M=D", nvars);
+    asm_add_line(prog, "(%s$Lcl)", func_name);
     asm_add_line(prog, "@R13");
     asm_add_line(prog, "M=M-1");
-    asm_add_line(prog, "@Filename.%s.LclEnd", func_name);
-    asm_add_line(prog, "M;JLT");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@%s$LclEnd", func_name);
+    asm_add_line(prog, "D;JLT");
     asm_add_line(prog, "D=0");
     asm_push_stack(prog);
-    asm_add_line(prog, "@(Filename.%s.Lcl)", func_name);
+    asm_add_line(prog, "@%s$Lcl", func_name);
     asm_add_line(prog, "0;JMP");
-    asm_add_line(prog, "(Filename.%s.LclEnd)", func_name);
+    asm_add_line(prog, "(%s$LclEnd)", func_name);
 }
 
 // Parse a function call instruction
-void parse_call(AsmProg *prog, const char *func_name, const char *nargs)
+void parse_call(AsmProg *prog, const char *func_name, const char *nargs,
+                int call_count)
 {
     char ret[ASM_MAX_LINE];
-    sprintf(ret, "Filename.%s$ret.%d", func_name, 0);
+    sprintf(ret, "%s$ret.%d", func_name, call_count);
 
     // Generate return label
     asm_add_line(prog, "@%s", ret);
@@ -427,22 +424,22 @@ void parse_call(AsmProg *prog, const char *func_name, const char *nargs)
 
     // Push LCL to stack
     asm_add_line(prog, "@LCL");
-    asm_add_line(prog, "D=A");
+    asm_add_line(prog, "D=M");
     asm_push_stack(prog);
 
     // Push ARG to stack
     asm_add_line(prog, "@ARG");
-    asm_add_line(prog, "D=A");
+    asm_add_line(prog, "D=M");
     asm_push_stack(prog);
 
     // Push THIS to stack
     asm_add_line(prog, "@THIS");
-    asm_add_line(prog, "D=A");
+    asm_add_line(prog, "D=M");
     asm_push_stack(prog);
 
     // Push THAT to stack
     asm_add_line(prog, "@THAT");
-    asm_add_line(prog, "D=A");
+    asm_add_line(prog, "D=M");
     asm_push_stack(prog);
 
     // Reposition ARG
@@ -462,7 +459,7 @@ void parse_call(AsmProg *prog, const char *func_name, const char *nargs)
     asm_add_line(prog, "M=D");
 
     // Call function
-    asm_add_line(prog, "@Filename.%s", func_name);
+    asm_add_line(prog, "@%s", func_name);
     asm_add_line(prog, "0;JMP");
 
     // Inject return address
@@ -472,7 +469,71 @@ void parse_call(AsmProg *prog, const char *func_name, const char *nargs)
 // Parse a function return instruction
 void parse_return(AsmProg *prog)
 {
-    (void)prog;
+    // Create "frame" temp variable
+    asm_add_line(prog, "@LCL");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "M=D");
+
+    // Put return address in temp variable
+    asm_add_line(prog, "@5");
+    asm_add_line(prog, "A=D-A");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@R14");
+    asm_add_line(prog, "M=D");
+
+    // Reposition return value
+    asm_pop_stack(prog);
+    asm_add_line(prog, "@ARG");
+    asm_add_line(prog, "A=M");
+    asm_add_line(prog, "M=D");
+
+    // Reposition SP
+    asm_add_line(prog, "@ARG");
+    asm_add_line(prog, "D=M+1");
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "M=D");
+
+    // Restore THAT
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@1");
+    asm_add_line(prog, "A=D-A");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@THAT");
+    asm_add_line(prog, "M=D");
+
+    // Restore THIS
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@2");
+    asm_add_line(prog, "A=D-A");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@THIS");
+    asm_add_line(prog, "M=D");
+
+    // Restore ARG
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@3");
+    asm_add_line(prog, "A=D-A");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@ARG");
+    asm_add_line(prog, "M=D");
+
+    // Restore LCL
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@4");
+    asm_add_line(prog, "A=D-A");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@LCL");
+    asm_add_line(prog, "M=D");
+
+    // Return
+    asm_add_line(prog, "@R14");
+    asm_add_line(prog, "A=M");
+    asm_add_line(prog, "0;JMP");
 }
 
 // Parses a line of VM code into Assembly code
@@ -502,6 +563,7 @@ bool parse(char *line, AsmProg *prog)
     static int eq_count = 0;
     static int gt_count = 0;
     static int lt_count = 0;
+    static int call_count = 1;
 
     // Memory
     if (strcmp(args[0], "push") == 0)
@@ -576,7 +638,7 @@ bool parse(char *line, AsmProg *prog)
     }
     else if (strcmp(args[0], "call") == 0)
     {
-        parse_call(prog, args[1], args[2]);
+        parse_call(prog, args[1], args[2], call_count++);
     }
     else if (strcmp(args[0], "return") == 0)
     {
@@ -593,13 +655,51 @@ bool parse(char *line, AsmProg *prog)
     return true;
 }
 
-// Opens a VM file and translates it into Hack assembly code
-bool translate(const char *filename, AsmProg *prog)
+// Gets the filename from a filepath
+void get_filename(const char *filepath)
 {
-    FILE *fp = fopen(filename, "r");
+    if (strrchr(filepath, '/') != NULL)
+    {
+        strcpy(FILENAME, strrchr(filepath, '/') + 1);
+    }
+    else
+    {
+        strcpy(FILENAME, filepath);
+    }
+
+    for (size_t i = 0; i < strlen(FILENAME); i++)
+    {
+        if (FILENAME[i] == '.')
+        {
+            FILENAME[i] = '\0';
+            break;
+        }
+    }
+}
+
+// Add bootstrap code
+void add_bootstrap(AsmProg *prog)
+{
+    asm_add_line(prog, "// Initialize stack");
+    asm_add_line(prog, "@%d", STACK_START_ADDR);
+    asm_add_line(prog, "D=A");
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "M=D");
+    asm_add_line(prog, "// Call Sys.init");
+    parse_call(prog, "Sys.init", "0", 0);
+    asm_add_line(prog, "");
+}
+
+// Opens a VM file and translates it into Hack assembly code
+bool translate(const char *filepath, AsmProg *prog)
+{
+    get_filename(filepath);
+    add_bootstrap(prog);
+
+    FILE *fp = fopen(filepath, "r");
     if (fp == NULL)
     {
-        fprintf(stderr, "Unable to open %s\n", filename);
+        fprintf(stderr, "Unable to open %s\n", filepath);
         return false;
     }
 
@@ -621,6 +721,12 @@ bool translate(const char *filename, AsmProg *prog)
     }
 
     fclose(fp);
+
+    // Add infinite loop
+    asm_add_line(prog, "(END_PROGRAM)");
+    asm_add_line(prog, "@END_PROGRAM");
+    asm_add_line(prog, "0;JMP");
+
     return true;
 }
 
@@ -634,7 +740,8 @@ void clean_exit(AsmProg *prog)
 // Writes assembly program to file
 bool gen_asm_file(AsmProg *prog)
 {
-    FILE *fp = fopen("out.asm", "w");
+    strcat(FILENAME, ".asm");
+    FILE *fp = fopen(FILENAME, "w");
     if (fp == NULL)
     {
         fprintf(stderr, "Unable to generate assembly file.\n");

@@ -1,10 +1,10 @@
-// TODO: Allow translate multiple VM files
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdarg.h>
+#include <dirent.h>
 
 #define ASM_MAX_LINE (FILENAME_MAX + 128)
 #define ASM_LINE_BUF 128
@@ -15,24 +15,11 @@
 #define VM_MAX_ARGS 3
 #define VM_MAX_ARG_LEN 64
 #define VM_ARG_DELIM " "
-#define VM_TRUE -1
-#define VM_FALSE 0
 
-// Mapping of VM symbols to RAM addresses on the Hack computer
-typedef enum
-{
-    SP_ADDR,
-    LCL_ADDR,
-    ARG_ADDR,
-    THIS_ADDR,
-    THAT_ADDR,
-    TEMP_START_ADDR,
-    R13_ADDR = 13,
-    R14_ADDR,
-    R15_ADDR,
-    STATIC_START_ADDR,
-    STACK_START_ADDR = 256
-} VM_ADDR;
+#define STACK_START_ADDR 256
+#define TEMP_START_ADDR 5
+
+#define MAX_FILES 32
 
 // Holds the translated assembly code
 typedef struct AsmProg
@@ -41,8 +28,9 @@ typedef struct AsmProg
     int line_count;
 } AsmProg;
 
-// The loaded file's name. Global because it should never change.
-char FILENAME[FILENAME_MAX];
+char FOLDER_NAME[FILENAME_MAX];
+char FILES[MAX_FILES][FILENAME_MAX] = {'\0'};
+int NUM_FILES = 0;
 
 // Initialize the assembly data
 bool asm_init(AsmProg *prog)
@@ -168,7 +156,8 @@ bool line_is_empty(const char *line)
 }
 
 // Parse a 'push' instruction
-bool parse_push(AsmProg *prog, const char *arg1, const char *arg2)
+bool parse_push(AsmProg *prog, const char *arg1, const char *arg2,
+                const char *filename)
 {
     bool is_virtual = false;
     bool is_const = false;
@@ -218,7 +207,7 @@ bool parse_push(AsmProg *prog, const char *arg1, const char *arg2)
     }
     else if (strcmp(arg1, "static") == 0)
     {
-        asm_add_line(prog, "@%s.%s", FILENAME, arg2);
+        asm_add_line(prog, "@%s.%s", filename, arg2);
     }
     else
     {
@@ -245,7 +234,8 @@ bool parse_push(AsmProg *prog, const char *arg1, const char *arg2)
 }
 
 // Parse a 'pop' instruction
-bool parse_pop(AsmProg *prog, const char *arg1, const char *arg2)
+bool parse_pop(AsmProg *prog, const char *arg1, const char *arg2,
+               const char *filename)
 {
     char asm_line[ASM_MAX_LINE];
     bool is_virtual = false;
@@ -289,7 +279,7 @@ bool parse_pop(AsmProg *prog, const char *arg1, const char *arg2)
     }
     else if (strcmp(arg1, "static") == 0)
     {
-        sprintf(asm_line, "@%s.%s", FILENAME, arg2);
+        sprintf(asm_line, "@%s.%s", filename, arg2);
     }
     else
     {
@@ -537,7 +527,7 @@ void parse_return(AsmProg *prog)
 }
 
 // Parses a line of VM code into Assembly code
-bool parse(char *line, AsmProg *prog)
+bool parse(char *line, AsmProg *prog, const char *filename)
 {
     /* The 'arguments' of a line (the instruction itself plus additional
      * arguments)
@@ -568,11 +558,11 @@ bool parse(char *line, AsmProg *prog)
     // Memory
     if (strcmp(args[0], "push") == 0)
     {
-        parse_push(prog, args[1], args[2]);
+        parse_push(prog, args[1], args[2], filename);
     }
     else if (strcmp(args[0], "pop") == 0)
     {
-        parse_pop(prog, args[1], args[2]);
+        parse_pop(prog, args[1], args[2], filename);
     }
 
     // Arithmetic
@@ -655,23 +645,73 @@ bool parse(char *line, AsmProg *prog)
     return true;
 }
 
-// Gets the filename from a filepath
-void get_filename(const char *filepath)
+// Gets a list of VM files from a filepath
+void get_files(const char *filepath)
 {
-    if (strrchr(filepath, '/') != NULL)
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(filepath);
+
+    /* If path is directory read in all the VM files, otherwise treat path as
+     * the file itself
+     */
+    if (d)
     {
-        strcpy(FILENAME, strrchr(filepath, '/') + 1);
+        while ((dir = readdir(d)) != NULL)
+        {
+            char *fname = dir->d_name;
+            int flen = strlen(fname);
+
+            if (strcmp(fname + (flen - 3), ".vm") == 0)
+            {
+                sprintf(FILES[NUM_FILES++], "%s/%s", filepath, fname);
+            }
+        }
+
+        char folder[FILENAME_MAX];
+        strcpy(folder, filepath);
+
+        // Save the folder name for later
+        if (folder[strlen(folder) - 1] == '/')
+        {
+            folder[strlen(folder) - 1] = '\0';
+        }
+        if (strrchr(folder, '/') != NULL)
+        {
+            strcpy(FOLDER_NAME, strrchr(folder, '/') + 1);
+        }
+        else
+        {
+            strcpy(FOLDER_NAME, folder);
+        }
+
+        closedir(d);
     }
     else
     {
-        strcpy(FILENAME, filepath);
+        strcpy(FILES[0], filepath);
+        NUM_FILES = 1;
+    }
+}
+
+// Gets the filename from a filepath
+void get_filename(const char *filepath, char *filename)
+{
+    // Get all the characters after the last / and before the last .
+    if (strrchr(filepath, '/') != NULL)
+    {
+        strcpy(filename, strrchr(filepath, '/') + 1);
+    }
+    else
+    {
+        strcpy(filename, filepath);
     }
 
-    for (size_t i = 0; i < strlen(FILENAME); i++)
+    for (size_t i = 0; i < strlen(filename); i++)
     {
-        if (FILENAME[i] == '.')
+        if (filename[i] == '.')
         {
-            FILENAME[i] = '\0';
+            filename[i] = '\0';
             break;
         }
     }
@@ -691,36 +731,41 @@ void add_bootstrap(AsmProg *prog)
 }
 
 // Opens a VM file and translates it into Hack assembly code
-bool translate(const char *filepath, AsmProg *prog)
+bool translate(AsmProg *prog)
 {
-    get_filename(filepath);
     add_bootstrap(prog);
 
-    FILE *fp = fopen(filepath, "r");
-    if (fp == NULL)
+    for (int i = 0; i < NUM_FILES; i++)
     {
-        fprintf(stderr, "Unable to open %s\n", filepath);
-        return false;
-    }
+        char filename[FILENAME_MAX];
+        get_filename(FILES[i], filename);
 
-    char line[VM_MAX_LINE] = {'\0'};
-    while (fgets(line, VM_MAX_LINE, fp) != NULL)
-    {
-        // Strip comments and newline characters
-        trim_comments(line);
-        trim_nl(line);
-
-        // Disregard blank lines
-        if (!line_is_empty(line))
+        FILE *fp = fopen(FILES[i], "r");
+        if (fp == NULL)
         {
-            if (!parse(line, prog))
+            fprintf(stderr, "Unable to open %s\n", FILES[i]);
+            return false;
+        }
+
+        char line[VM_MAX_LINE] = {'\0'};
+        while (fgets(line, VM_MAX_LINE, fp) != NULL)
+        {
+            // Strip comments and newline characters
+            trim_comments(line);
+            trim_nl(line);
+
+            // Disregard blank lines
+            if (!line_is_empty(line))
             {
-                return false;
+                if (!parse(line, prog, filename))
+                {
+                    return false;
+                }
             }
         }
-    }
 
-    fclose(fp);
+        fclose(fp);
+    }
 
     // Add infinite loop
     asm_add_line(prog, "(END_PROGRAM)");
@@ -740,8 +785,19 @@ void clean_exit(AsmProg *prog)
 // Writes assembly program to file
 bool gen_asm_file(AsmProg *prog)
 {
-    strcat(FILENAME, ".asm");
-    FILE *fp = fopen(FILENAME, "w");
+    // Decide if going to use folder name or file name
+    char outname[FILENAME_MAX];
+    if (NUM_FILES > 1)
+    {
+        strcpy(outname, FOLDER_NAME);
+    }
+    else
+    {
+        get_filename(FILES[0], outname);
+    }
+
+    strcat(outname, ".asm");
+    FILE *fp = fopen(outname, "w");
     if (fp == NULL)
     {
         fprintf(stderr, "Unable to generate assembly file.\n");
@@ -771,7 +827,8 @@ int main(int argc, char **argv)
     AsmProg prog;
     asm_init(&prog);
 
-    if (!translate(argv[1], &prog))
+    get_files(argv[1]);
+    if (!translate(&prog))
     {
         clean_exit(&prog);
         return 1;

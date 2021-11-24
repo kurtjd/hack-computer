@@ -14,7 +14,7 @@
 #define INSTR_BITS 16
 #define SYMBOL_MAX_LEN 64
 #define VAR_START_ADDR 16
-#define MAX_SYMBOLS 1024
+#define MAX_SYMBOLS 64000
 
 #include <stdio.h>
 #include <string.h>

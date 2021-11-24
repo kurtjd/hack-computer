@@ -9,11 +9,10 @@
 #define ASM_MAX_LINE (FILENAME_MAX + 128)
 #define ASM_LINE_BUF 128
 #define ASM_CHUNK_SIZE (ASM_LINE_BUF * ASM_MAX_LINE)
-#define ASM_SIZE (sizeof *(prog->data))
 
-#define VM_MAX_LINE 128
+#define VM_MAX_LINE 1024
 #define VM_MAX_ARGS 3
-#define VM_MAX_ARG_LEN 64
+#define VM_MAX_ARG_LEN 1024
 #define VM_ARG_DELIM " "
 
 #define STACK_START_ADDR 256
@@ -25,6 +24,7 @@
 typedef struct AsmProg
 {
     char *data;
+    size_t size;
     int line_count;
 } AsmProg;
 
@@ -35,7 +35,8 @@ int NUM_FILES = 0;
 // Initialize the assembly data
 bool asm_init(AsmProg *prog)
 {
-    prog->data = malloc(ASM_CHUNK_SIZE);
+    prog->size = ASM_CHUNK_SIZE;
+    prog->data = malloc(prog->size);
     if (prog->data == NULL)
     {
         fprintf(stderr, "Unable to allocate memory for assembly.\n");
@@ -64,7 +65,8 @@ void asm_add_line(AsmProg *prog, const char *format, ...)
 
     if ((prog->line_count % ASM_LINE_BUF) == 0)
     {
-        prog->data = realloc(prog->data, ASM_SIZE + ASM_CHUNK_SIZE);
+        prog->size += ASM_CHUNK_SIZE;
+        prog->data = realloc(prog->data, prog->size);
         if (prog->data == NULL)
         {
             fprintf(stderr, "Unable to reallocate memory for assembly.\n");

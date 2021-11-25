@@ -106,11 +106,11 @@ void asm_pop_stack(AsmProg *prog)
 // Adds instructions to pop two variables from stack
 void asm_pop_two(AsmProg *prog)
 {
-    asm_pop_stack(prog);
-    asm_add_line(prog, "@R13");
-    asm_add_line(prog, "M=D");
-    asm_pop_stack(prog);
-    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "AM=M-1");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "AM=M-1");
 }
 
 // Remove all comments from the line
@@ -326,7 +326,7 @@ bool parse_pop(AsmProg *prog, const char *arg1, const char *arg2,
 void parse_cmp(AsmProg *prog, const char *cmp, int count)
 {
     asm_pop_two(prog);
-    asm_add_line(prog, "D=D-M");
+    asm_add_line(prog, "D=M-D");
 
     asm_add_line(prog, "@%s_%d", cmp, count);
     asm_add_line(prog, "D;J%s", cmp);
@@ -489,7 +489,7 @@ bool parse(char *line, AsmProg *prog, const char *filename)
     }
     else if (strcmp(args[0], "sub") == 0)
     {
-        parse_binary(prog, "D=D-M");
+        parse_binary(prog, "D=M-D");
     }
     else if (strcmp(args[0], "neg") == 0)
     {

@@ -345,9 +345,9 @@ void parse_cmp(AsmProg *prog, const char *cmp, int count)
 // Parse a unary (one operand) instruction
 void parse_unary(AsmProg *prog, const char *instr)
 {
-    asm_pop_stack(prog);
-    asm_add_line(prog, instr);
-    asm_push_stack(prog, "D");
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "A=M-1");
+    asm_add_line(prog, "M=%sM", instr);
 }
 
 // Parse a binary (two operand) instruction
@@ -493,7 +493,7 @@ bool parse(char *line, AsmProg *prog, const char *filename)
     }
     else if (strcmp(args[0], "neg") == 0)
     {
-        parse_unary(prog, "D=-D");
+        parse_unary(prog, "-");
     }
 
     // Comparison
@@ -521,7 +521,7 @@ bool parse(char *line, AsmProg *prog, const char *filename)
     }
     else if (strcmp(args[0], "not") == 0)
     {
-        parse_unary(prog, "D=!D");
+        parse_unary(prog, "!");
     }
 
     // Branching

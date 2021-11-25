@@ -87,20 +87,19 @@ void asm_free(AsmProg *prog)
 }
 
 // Adds instructions to push to stack
-void asm_push_stack(AsmProg *prog)
+void asm_push_stack(AsmProg *prog, const char *val)
 {
     asm_add_line(prog, "@SP");
     asm_add_line(prog, "M=M+1");
     asm_add_line(prog, "A=M-1");
-    asm_add_line(prog, "M=D");
+    asm_add_line(prog, "M=%s", val);
 }
 
 // Adds instructions to pop from stack
 void asm_pop_stack(AsmProg *prog)
 {
     asm_add_line(prog, "@SP");
-    asm_add_line(prog, "M=M-1");
-    asm_add_line(prog, "A=M");
+    asm_add_line(prog, "AM=M-1");
     asm_add_line(prog, "D=M");
 }
 
@@ -230,7 +229,7 @@ bool parse_push(AsmProg *prog, const char *arg1, const char *arg2,
     }
 
     // Push data onto stack
-    asm_push_stack(prog);
+    asm_push_stack(prog, "D");
 
     return true;
 }
@@ -340,7 +339,7 @@ void parse_cmp(AsmProg *prog, const char *cmp, int count)
     asm_add_line(prog, "D=-1");
 
     asm_add_line(prog, "(END_%s_%d)", cmp, count);
-    asm_push_stack(prog);
+    asm_push_stack(prog, "D");
 }
 
 // Parse a unary (one operand) instruction
@@ -348,7 +347,7 @@ void parse_unary(AsmProg *prog, const char *instr)
 {
     asm_pop_stack(prog);
     asm_add_line(prog, instr);
-    asm_push_stack(prog);
+    asm_push_stack(prog, "D");
 }
 
 // Parse a binary (two operand) instruction
@@ -356,7 +355,7 @@ void parse_binary(AsmProg *prog, const char *instr)
 {
     asm_pop_two(prog);
     asm_add_line(prog, instr);
-    asm_push_stack(prog);
+    asm_push_stack(prog, "D");
 }
 
 // Parse a label instruction
@@ -387,16 +386,11 @@ void parse_function(AsmProg *prog, const char *func_name, const char *nvars)
     asm_add_line(prog, "(%s)", func_name);
     asm_add_line(prog, "@%s", nvars);
     asm_add_line(prog, "D=A");
-    asm_add_line(prog, "@R13");
-    asm_add_line(prog, "M=D", nvars);
     asm_add_line(prog, "(%s$Lcl)", func_name);
-    asm_add_line(prog, "@R13");
-    asm_add_line(prog, "M=M-1");
-    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "D=D-1");
     asm_add_line(prog, "@%s$LclEnd", func_name);
     asm_add_line(prog, "D;JLT");
-    asm_add_line(prog, "D=0");
-    asm_push_stack(prog);
+    asm_push_stack(prog, "0");
     asm_add_line(prog, "@%s$Lcl", func_name);
     asm_add_line(prog, "0;JMP");
     asm_add_line(prog, "(%s$LclEnd)", func_name);
@@ -412,27 +406,16 @@ void parse_call(AsmProg *prog, const char *func_name, const char *nargs,
     // Generate return label
     asm_add_line(prog, "@%s", ret);
     asm_add_line(prog, "D=A");
-    asm_push_stack(prog);
+    asm_push_stack(prog, "D");
 
-    // Push LCL to stack
-    asm_add_line(prog, "@LCL");
-    asm_add_line(prog, "D=M");
-    asm_push_stack(prog);
-
-    // Push ARG to stack
-    asm_add_line(prog, "@ARG");
-    asm_add_line(prog, "D=M");
-    asm_push_stack(prog);
-
-    // Push THIS to stack
-    asm_add_line(prog, "@THIS");
-    asm_add_line(prog, "D=M");
-    asm_push_stack(prog);
-
-    // Push THAT to stack
-    asm_add_line(prog, "@THAT");
-    asm_add_line(prog, "D=M");
-    asm_push_stack(prog);
+    // Jump to frame saving code
+    asm_add_line(prog, "@SAVE_RET_%d", call_count);
+    asm_add_line(prog, "D=A");
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "M=D");
+    asm_add_line(prog, "@SAVE");
+    asm_add_line(prog, "0;JMP");
+    asm_add_line(prog, "(SAVE_RET_%d)", call_count);
 
     // Reposition ARG
     asm_add_line(prog, "@SP");
@@ -442,12 +425,6 @@ void parse_call(AsmProg *prog, const char *func_name, const char *nargs,
     asm_add_line(prog, "@%s", nargs);
     asm_add_line(prog, "D=D-A");
     asm_add_line(prog, "@ARG");
-    asm_add_line(prog, "M=D");
-
-    // Reposition LCL
-    asm_add_line(prog, "@SP");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@LCL");
     asm_add_line(prog, "M=D");
 
     // Call function
@@ -732,10 +709,50 @@ void add_bootstrap(AsmProg *prog)
     asm_add_line(prog, "");
 }
 
+// Add save code
+void add_save(AsmProg *prog)
+{
+    asm_add_line(prog, "// Ran everytime a function is called");
+    asm_add_line(prog, "(SAVE)");
+
+    // Push LCL to stack
+    asm_add_line(prog, "@LCL");
+    asm_add_line(prog, "D=M");
+    asm_push_stack(prog, "D");
+
+    // Push ARG to stack
+    asm_add_line(prog, "@ARG");
+    asm_add_line(prog, "D=M");
+    asm_push_stack(prog, "D");
+
+    // Push THIS to stack
+    asm_add_line(prog, "@THIS");
+    asm_add_line(prog, "D=M");
+    asm_push_stack(prog, "D");
+
+    // Push THAT to stack
+    asm_add_line(prog, "@THAT");
+    asm_add_line(prog, "D=M");
+    asm_push_stack(prog, "D");
+
+    // Reposition LCL
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@LCL");
+    asm_add_line(prog, "M=D");
+
+    // Return to caller
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "A=M");
+    asm_add_line(prog, "0;JMP");
+    asm_add_line(prog, "");
+}
+
 // Opens a VM file and translates it into Hack assembly code
 bool translate(AsmProg *prog)
 {
     add_bootstrap(prog);
+    add_save(prog);
 
     for (int i = 0; i < NUM_FILES; i++)
     {

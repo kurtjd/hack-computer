@@ -325,9 +325,12 @@ bool parse_pop(AsmProg *prog, const char *arg1, const char *arg2,
 // Parse a comparison instruction
 void parse_cmp(AsmProg *prog, const char *cmp, int count)
 {
-    asm_pop_two(prog);
-    asm_add_line(prog, "D=M-D");
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "AM=M-1");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "A=A-1");
 
+    asm_add_line(prog, "D=M-D");
     asm_add_line(prog, "@%s_%d", cmp, count);
     asm_add_line(prog, "D;J%s", cmp);
 
@@ -339,7 +342,10 @@ void parse_cmp(AsmProg *prog, const char *cmp, int count)
     asm_add_line(prog, "D=-1");
 
     asm_add_line(prog, "(END_%s_%d)", cmp, count);
-    asm_push_stack(prog, "D");
+
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "A=M-1");
+    asm_add_line(prog, "M=D");
 }
 
 // Parse a unary (one operand) instruction

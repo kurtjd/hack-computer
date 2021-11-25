@@ -103,16 +103,6 @@ void asm_pop_stack(AsmProg *prog)
     asm_add_line(prog, "D=M");
 }
 
-// Adds instructions to pop two variables from stack
-void asm_pop_two(AsmProg *prog)
-{
-    asm_add_line(prog, "@SP");
-    asm_add_line(prog, "AM=M-1");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@SP");
-    asm_add_line(prog, "AM=M-1");
-}
-
 // Remove all comments from the line
 void trim_comments(char *line)
 {
@@ -288,7 +278,6 @@ bool parse_pop(AsmProg *prog, const char *arg1, const char *arg2,
         return false;
     }
 
-    // Pop stack value
     asm_pop_stack(prog);
 
     // Get the address
@@ -325,12 +314,10 @@ bool parse_pop(AsmProg *prog, const char *arg1, const char *arg2,
 // Parse a comparison instruction
 void parse_cmp(AsmProg *prog, const char *cmp, int count)
 {
-    asm_add_line(prog, "@SP");
-    asm_add_line(prog, "AM=M-1");
-    asm_add_line(prog, "D=M");
+    asm_pop_stack(prog);
     asm_add_line(prog, "A=A-1");
 
-    asm_add_line(prog, "D=M-D");
+    asm_add_line(prog, "D=M-D"); // want x-y (2 - 1)
     asm_add_line(prog, "@%s_%d", cmp, count);
     asm_add_line(prog, "D;J%s", cmp);
 
@@ -359,9 +346,7 @@ void parse_unary(AsmProg *prog, char op)
 // Parse a binary (two operand) instruction
 void parse_binary(AsmProg *prog, char op)
 {
-    asm_add_line(prog, "@SP");
-    asm_add_line(prog, "AM=M-1");
-    asm_add_line(prog, "D=M");
+    asm_pop_stack(prog);
     asm_add_line(prog, "A=A-1");
 
     if (op != '-')
@@ -370,34 +355,38 @@ void parse_binary(AsmProg *prog, char op)
     }
     else
     {
-        asm_add_line(prog, "M=M-D", op);
+        asm_add_line(prog, "M=M-D");
     }
 }
 
 // Parse a label instruction
-void parse_label(AsmProg *prog, const char *label)
+void parse_label(AsmProg *prog, const char *label, char *cur_func)
 {
-    asm_add_line(prog, "(%s)", label);
+    asm_add_line(prog, "(%s_%s)", label, cur_func);
 }
 
 // Parse a goto instruction
-void parse_goto(AsmProg *prog, const char *label)
+void parse_goto(AsmProg *prog, const char *label, char *cur_func)
 {
-    asm_add_line(prog, "@%s", label);
+    asm_add_line(prog, "@%s_%s", label, cur_func);
     asm_add_line(prog, "0;JMP");
 }
 
 // Parse an if-goto instruction
-void parse_if_goto(AsmProg *prog, const char *label)
+void parse_if_goto(AsmProg *prog, const char *label, char *cur_func)
 {
     asm_pop_stack(prog);
-    asm_add_line(prog, "@%s", label);
+    asm_add_line(prog, "@%s_%s", label, cur_func);
     asm_add_line(prog, "D;JNE");
 }
 
 // Parse a function creation instruction
-void parse_function(AsmProg *prog, const char *func_name, const char *nvars)
+void parse_function(AsmProg *prog, const char *func_name, const char *nvars,
+                    char *cur_func)
 {
+    // Keep track of current function
+    strcpy(cur_func, func_name);
+
     // Initialize nvars local variables to zero
     asm_add_line(prog, "(%s)", func_name);
     asm_add_line(prog, "@%s", nvars);
@@ -460,7 +449,7 @@ void parse_return(AsmProg *prog)
 }
 
 // Parses a line of VM code into Assembly code
-bool parse(char *line, AsmProg *prog, const char *filename)
+bool parse(char *line, AsmProg *prog, const char *filename, char *cur_func)
 {
     /* The 'arguments' of a line (the instruction itself plus additional
      * arguments)
@@ -501,12 +490,10 @@ bool parse(char *line, AsmProg *prog, const char *filename)
     // Arithmetic
     else if (strcmp(args[0], "add") == 0)
     {
-        //parse_binary(prog, "D=D+M");
         parse_binary(prog, '+');
     }
     else if (strcmp(args[0], "sub") == 0)
     {
-        //parse_binary(prog, "D=M-D");
         parse_binary(prog, '-');
     }
     else if (strcmp(args[0], "neg") == 0)
@@ -531,12 +518,10 @@ bool parse(char *line, AsmProg *prog, const char *filename)
     // Logical
     else if (strcmp(args[0], "and") == 0)
     {
-        //parse_binary(prog, "D=D&M");
         parse_binary(prog, '&');
     }
     else if (strcmp(args[0], "or") == 0)
     {
-        //parse_binary(prog, "D=D|M");
         parse_binary(prog, '|');
     }
     else if (strcmp(args[0], "not") == 0)
@@ -547,21 +532,21 @@ bool parse(char *line, AsmProg *prog, const char *filename)
     // Branching
     else if (strcmp(args[0], "label") == 0)
     {
-        parse_label(prog, args[1]);
+        parse_label(prog, args[1], cur_func);
     }
     else if (strcmp(args[0], "goto") == 0)
     {
-        parse_goto(prog, args[1]);
+        parse_goto(prog, args[1], cur_func);
     }
     else if (strcmp(args[0], "if-goto") == 0)
     {
-        parse_if_goto(prog, args[1]);
+        parse_if_goto(prog, args[1], cur_func);
     }
 
     // Functions
     else if (strcmp(args[0], "function") == 0)
     {
-        parse_function(prog, args[1], args[2]);
+        parse_function(prog, args[1], args[2], cur_func);
     }
     else if (strcmp(args[0], "call") == 0)
     {
@@ -803,6 +788,10 @@ bool translate(AsmProg *prog)
             return false;
         }
 
+        // Tracks the current function we are in to generate unique labels
+        char cur_func[FILENAME_MAX + VM_MAX_LINE];
+        sprintf(cur_func, "GLOBAL_%s", filename);
+
         char line[VM_MAX_LINE] = {'\0'};
         while (fgets(line, VM_MAX_LINE, fp) != NULL)
         {
@@ -813,7 +802,7 @@ bool translate(AsmProg *prog)
             // Disregard blank lines
             if (!line_is_empty(line))
             {
-                if (!parse(line, prog, filename))
+                if (!parse(line, prog, filename, cur_func))
                 {
                     return false;
                 }

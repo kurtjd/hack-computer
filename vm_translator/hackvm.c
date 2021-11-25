@@ -438,70 +438,8 @@ void parse_call(AsmProg *prog, const char *func_name, const char *nargs,
 // Parse a function return instruction
 void parse_return(AsmProg *prog)
 {
-    // Create "frame" temp variable
-    asm_add_line(prog, "@LCL");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@R13");
-    asm_add_line(prog, "M=D");
-
-    // Put return address in temp variable
-    asm_add_line(prog, "@5");
-    asm_add_line(prog, "A=D-A");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@R14");
-    asm_add_line(prog, "M=D");
-
-    // Reposition return value
-    asm_pop_stack(prog);
-    asm_add_line(prog, "@ARG");
-    asm_add_line(prog, "A=M");
-    asm_add_line(prog, "M=D");
-
-    // Reposition SP
-    asm_add_line(prog, "@ARG");
-    asm_add_line(prog, "D=M+1");
-    asm_add_line(prog, "@SP");
-    asm_add_line(prog, "M=D");
-
-    // Restore THAT
-    asm_add_line(prog, "@R13");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@1");
-    asm_add_line(prog, "A=D-A");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@THAT");
-    asm_add_line(prog, "M=D");
-
-    // Restore THIS
-    asm_add_line(prog, "@R13");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@2");
-    asm_add_line(prog, "A=D-A");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@THIS");
-    asm_add_line(prog, "M=D");
-
-    // Restore ARG
-    asm_add_line(prog, "@R13");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@3");
-    asm_add_line(prog, "A=D-A");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@ARG");
-    asm_add_line(prog, "M=D");
-
-    // Restore LCL
-    asm_add_line(prog, "@R13");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@4");
-    asm_add_line(prog, "A=D-A");
-    asm_add_line(prog, "D=M");
-    asm_add_line(prog, "@LCL");
-    asm_add_line(prog, "M=D");
-
-    // Return
-    asm_add_line(prog, "@R14");
-    asm_add_line(prog, "A=M");
+    // Jump to frame restore code
+    asm_add_line(prog, "@RESTORE");
     asm_add_line(prog, "0;JMP");
 }
 
@@ -696,19 +634,6 @@ void get_filename(const char *filepath, char *filename)
     }
 }
 
-// Add bootstrap code
-void add_bootstrap(AsmProg *prog)
-{
-    asm_add_line(prog, "// Initialize stack");
-    asm_add_line(prog, "@%d", STACK_START_ADDR);
-    asm_add_line(prog, "D=A");
-    asm_add_line(prog, "@SP");
-    asm_add_line(prog, "M=D");
-    asm_add_line(prog, "// Call Sys.init");
-    parse_call(prog, "Sys.init", "0", 0);
-    asm_add_line(prog, "");
-}
-
 // Add save code
 void add_save(AsmProg *prog)
 {
@@ -748,11 +673,103 @@ void add_save(AsmProg *prog)
     asm_add_line(prog, "");
 }
 
+// Add restore code
+void add_restore(AsmProg *prog)
+{
+    asm_add_line(prog, "// Ran everytime a function is returned");
+    asm_add_line(prog, "(RESTORE)");
+
+    // Create "frame" temp variable
+    asm_add_line(prog, "@LCL");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "M=D");
+
+    // Put return address in temp variable
+    asm_add_line(prog, "@5");
+    asm_add_line(prog, "A=D-A");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@R14");
+    asm_add_line(prog, "M=D");
+
+    // Reposition return value
+    asm_pop_stack(prog);
+    asm_add_line(prog, "@ARG");
+    asm_add_line(prog, "A=M");
+    asm_add_line(prog, "M=D");
+
+    // Reposition SP
+    asm_add_line(prog, "@ARG");
+    asm_add_line(prog, "D=M+1");
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "M=D");
+
+    // Restore THAT
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@1");
+    asm_add_line(prog, "A=D-A");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@THAT");
+    asm_add_line(prog, "M=D");
+
+    // Restore THIS
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@2");
+    asm_add_line(prog, "A=D-A");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@THIS");
+    asm_add_line(prog, "M=D");
+
+    // Restore ARG
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@3");
+    asm_add_line(prog, "A=D-A");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@ARG");
+    asm_add_line(prog, "M=D");
+
+    // Restore LCL
+    asm_add_line(prog, "@R13");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@4");
+    asm_add_line(prog, "A=D-A");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "@LCL");
+    asm_add_line(prog, "M=D");
+
+    // Return
+    asm_add_line(prog, "@R14");
+    asm_add_line(prog, "A=M");
+    asm_add_line(prog, "0;JMP");
+
+    asm_add_line(prog, "");
+}
+
+// Add bootstrap code
+void add_bootstrap(AsmProg *prog)
+{
+    asm_add_line(prog, "// Initialize stack");
+    asm_add_line(prog, "@%d", STACK_START_ADDR);
+    asm_add_line(prog, "D=A");
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "M=D");
+    asm_add_line(prog, "");
+
+    asm_add_line(prog, "// Call Sys.init");
+    parse_call(prog, "Sys.init", "0", 0);
+    asm_add_line(prog, "");
+
+    add_save(prog);
+    add_restore(prog);
+}
+
 // Opens a VM file and translates it into Hack assembly code
 bool translate(AsmProg *prog)
 {
     add_bootstrap(prog);
-    add_save(prog);
 
     for (int i = 0; i < NUM_FILES; i++)
     {

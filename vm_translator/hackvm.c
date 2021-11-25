@@ -343,19 +343,29 @@ void parse_cmp(AsmProg *prog, const char *cmp, int count)
 }
 
 // Parse a unary (one operand) instruction
-void parse_unary(AsmProg *prog, const char *instr)
+void parse_unary(AsmProg *prog, char op)
 {
     asm_add_line(prog, "@SP");
     asm_add_line(prog, "A=M-1");
-    asm_add_line(prog, "M=%sM", instr);
+    asm_add_line(prog, "M=%cM", op);
 }
 
 // Parse a binary (two operand) instruction
-void parse_binary(AsmProg *prog, const char *instr)
+void parse_binary(AsmProg *prog, char op)
 {
-    asm_pop_two(prog);
-    asm_add_line(prog, instr);
-    asm_push_stack(prog, "D");
+    asm_add_line(prog, "@SP");
+    asm_add_line(prog, "AM=M-1");
+    asm_add_line(prog, "D=M");
+    asm_add_line(prog, "A=A-1");
+
+    if (op != '-')
+    {
+        asm_add_line(prog, "M=D%cM", op);
+    }
+    else
+    {
+        asm_add_line(prog, "M=M-D", op);
+    }
 }
 
 // Parse a label instruction
@@ -485,15 +495,17 @@ bool parse(char *line, AsmProg *prog, const char *filename)
     // Arithmetic
     else if (strcmp(args[0], "add") == 0)
     {
-        parse_binary(prog, "D=D+M");
+        //parse_binary(prog, "D=D+M");
+        parse_binary(prog, '+');
     }
     else if (strcmp(args[0], "sub") == 0)
     {
-        parse_binary(prog, "D=M-D");
+        //parse_binary(prog, "D=M-D");
+        parse_binary(prog, '-');
     }
     else if (strcmp(args[0], "neg") == 0)
     {
-        parse_unary(prog, "-");
+        parse_unary(prog, '-');
     }
 
     // Comparison
@@ -513,15 +525,17 @@ bool parse(char *line, AsmProg *prog, const char *filename)
     // Logical
     else if (strcmp(args[0], "and") == 0)
     {
-        parse_binary(prog, "D=D&M");
+        //parse_binary(prog, "D=D&M");
+        parse_binary(prog, '&');
     }
     else if (strcmp(args[0], "or") == 0)
     {
-        parse_binary(prog, "D=D|M");
+        //parse_binary(prog, "D=D|M");
+        parse_binary(prog, '|');
     }
     else if (strcmp(args[0], "not") == 0)
     {
-        parse_unary(prog, "!");
+        parse_unary(prog, '!');
     }
 
     // Branching

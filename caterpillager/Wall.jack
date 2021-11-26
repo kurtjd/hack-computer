@@ -1,0 +1,46 @@
+class Wall
+{
+    field int x, y, w, h;
+
+    constructor Wall new(int startx, int starty, int startw, int starth)
+    {
+        let x = startx;
+        let y = starty;
+        let w = startw;
+        let h = starth;
+
+        return this;
+    }
+
+    method void dispose()
+    {
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    method int getX()
+    {
+        return x;
+    }
+
+    method int getY()
+    {
+        return y;
+    }
+
+    method int getW()
+    {
+        return w;
+    }
+
+    method int getH()
+    {
+        return h;
+    }
+
+    method void draw()
+    {
+        do Screen.drawRectangle(x, y, x + w, y + h);
+        return;
+    }
+}

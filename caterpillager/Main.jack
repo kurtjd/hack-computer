@@ -1,17 +1,85 @@
 class Main
 {
+    function bool check_hit_wall(Caterpillager cp, Array walls, int num_walls, int xdir, int ydir)
+    {
+        var int i;
+        var Wall wall;
+        var int cp_tx;
+        var int cp_ty;
+        var int xdif, ydif;
+
+        let i = 0;
+        let cp_tx = (cp.getX() + xdir) * 16;
+        let cp_ty = (cp.getY() + ydir) * 16;
+
+        if ((xdir = 1) & (cp.getX() = 31))
+        {
+            return true;
+        }
+        if ((xdir = -1) & (cp.getX() = 0))
+        {
+            return true;
+        }
+        if ((ydir = 1) & (cp.getY() = 15))
+        {
+            return true;
+        }
+        if ((ydir = -1) & (cp.getY() = 0))
+        {
+            return true;
+        }
+
+        while (i < num_walls)
+        {
+            let wall = walls[i];
+            let xdif = wall.getX() - cp_tx;
+            let ydif = wall.getY() - cp_ty;
+
+            if (((xdif < 16) & (xdif > (-wall.getW()))) | ((xdif > (-wall.getW())) & (xdif < 16)))
+            {
+                if (((ydif < 16) & (ydif > (-wall.getH()))) | ((ydif > (-wall.getH())) & (ydif < 16)))
+                {
+                    return true;
+                }
+            }
+
+            let i = i + 1;
+        }
+
+        return false;
+    }
+
     function void main()
     {
         var Caterpillager cp;
+        var Array walls;
         var char key;  // the key currently pressed by the user
         var char last_key;
         var boolean exit;
+        var int num_walls;
+        var Wall cur_wall;
 
         let cp = Caterpillager.new(0, 0);
+        let num_walls = 5;
+        let walls = Array.new(num_walls);
+
         let exit = false;
         let last_key = 0;
 
         do cp.draw(false);
+
+        let walls[0] = Wall.new(50, 200, 150, 5);
+        let walls[1] = Wall.new(300, 100, 5, 150);
+        let walls[2] = Wall.new(100, 0, 5, 100);
+        let walls[3] = Wall.new(400, 0, 5, 200);
+        let walls[4] = Wall.new(200, 50, 100, 5);
+        
+        while (num_walls > 0)
+        {
+            let cur_wall = walls[5 - num_walls];
+            do cur_wall.draw();
+            let num_walls = num_walls - 1;
+        }
 
         while (~exit) {
             let key = Keyboard.keyPressed();
@@ -19,10 +87,31 @@ class Main
             if (last_key = 0)
             {
                 if (key = 81)  { let exit = true; }     // q key
-                if (key = 131) { do cp.moveUp(); }   // up arrow
-                if (key = 133) { do cp.moveDown(); }   // down arrow
-                if (key = 130) { do cp.moveLeft(); }   // left arrow
-                if (key = 132) { do cp.moveRight(); }   // right arrow
+
+                if (key = 131) {
+                    if (~(Main.check_hit_wall(cp, walls, 5, 0, -1)))
+                    {
+                        do cp.moveUp();
+                    }
+                }   // up arrow
+                if (key = 133) {
+                    if (~(Main.check_hit_wall(cp, walls, 5, 0, 1)))
+                    {
+                        do cp.moveDown();
+                    }
+                }   // down arrow
+                if (key = 130) {
+                    if (~(Main.check_hit_wall(cp, walls, 5, -1, 0)))
+                    {
+                        do cp.moveLeft();
+                    }
+                    }   // left arrow
+                if (key = 132) {
+                    if (~(Main.check_hit_wall(cp, walls, 5, 1, 0)))
+                    {
+                        do cp.moveRight();
+                    }
+                }   // right arrow
 
                 let last_key = key;
             }
@@ -32,6 +121,9 @@ class Main
                 let last_key = 0;
             }
         }
+
+        do cp.dispose();
+        do walls.dispose();
 
         return;
     }

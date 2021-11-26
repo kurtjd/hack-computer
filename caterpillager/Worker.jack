@@ -15,16 +15,6 @@ class Worker
         return;
     }
 
-    method int getX()
-    {
-        return x;
-    }
-
-    method int getY()
-    {
-        return y;
-    }
-
     method void draw()
     {
         var int memAddress;

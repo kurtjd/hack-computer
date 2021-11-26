@@ -1,0 +1,42 @@
+class Queen
+{
+    field int x, y;
+
+    constructor Queen new(int startx, int starty)
+    {
+        let x = startx;
+        let y = starty;
+        return this;
+    }
+
+    method void dispose()
+    {
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    method void draw()
+    {
+        var int memAddress;
+        let memAddress = 16384 + (y * 32 * 16) + (x - (32 * (x / 32)));
+
+        do Memory.poke(memAddress + 0, 3584);
+        do Memory.poke(memAddress + 32, 2432);
+        do Memory.poke(memAddress + 64, 1088);
+        do Memory.poke(memAddress + 96, 1068);
+        do Memory.poke(memAddress + 128, 946);
+        do Memory.poke(memAddress + 160, 1122);
+        do Memory.poke(memAddress + 192, 14349);
+        do Memory.poke(memAddress + 224, 18450);
+        do Memory.poke(memAddress + 256, -31712);
+        do Memory.poke(memAddress + 288, 22096);
+        do Memory.poke(memAddress + 320, 10664);
+        do Memory.poke(memAddress + 352, 10280);
+        do Memory.poke(memAddress + 384, 17476);
+        do Memory.poke(memAddress + 416, 17476);
+        do Memory.poke(memAddress + 448, -32126);
+        do Memory.poke(memAddress + 480, -32126);
+
+        return;
+    }
+}

@@ -52,6 +52,7 @@ class Main
     function void main()
     {
         var Caterpillager cp;
+        var Queen queen;
         var Array walls;
         var Array workers;
         var char key;  // the key currently pressed by the user
@@ -63,6 +64,7 @@ class Main
         var Worker cur_worker;
 
         let cp = Caterpillager.new(0, 0);
+        let queen = Queen.new(28, 1);
         let num_walls = 5;
         let walls = Array.new(num_walls);
         let num_workers = 5;
@@ -72,6 +74,7 @@ class Main
         let last_key = 0;
 
         do cp.draw(false);
+        do queen.draw();
 
         let walls[0] = Wall.new(50, 200, 150, 5);
         let walls[1] = Wall.new(300, 100, 5, 150);
@@ -141,6 +144,7 @@ class Main
         }
 
         do cp.dispose();
+        do queen.dispose();
         do walls.dispose();
         do workers.dispose();
 

@@ -1,0 +1,135 @@
+class Caterpillager
+{
+    field int x, y;
+
+    constructor Caterpillager new(int startx, int starty)
+    {
+        let x = startx;
+        let y = starty;
+        return this;
+    }
+
+    method void dispose()
+    {
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    method int getX()
+    {
+        return x;
+    }
+
+    method int getY()
+    {
+        return y;
+    }
+
+    method void moveRight()
+    {
+        do draw(true);
+
+        if (x = 32)
+        {
+            let x = 0;
+        }
+        let x = x + 1;
+        do draw(false);
+
+        return;
+    }
+
+    method void moveLeft()
+    {
+        do draw(true);
+
+        if (x = 0)
+        {
+            let x = 32;
+        }
+        let x = x - 1;
+        do draw(false);
+
+        return;
+    }
+
+    method void moveUp()
+    {
+        do draw(true);
+
+        if (y = 0)
+        {
+            let y = 15;
+        }
+        else
+        {
+            let y = y - 1;
+        }
+        do draw(false);
+
+        return;
+    }
+
+    method void moveDown()
+    {
+        do draw(true);
+
+        if (y = 15)
+        {
+            let y = 0;
+        }
+        else
+        {
+            let y = y + 1;
+        }
+        do draw(false);
+
+        return;
+    }
+
+    method void draw(bool clear) {
+        var int memAddress;
+        let memAddress = 16384 + (y * 32 * 16) + (x - (32 * (x / 32)));
+
+        if (clear)
+        {
+            do Memory.poke(memAddress + 0, 0);
+            do Memory.poke(memAddress + 32, 0);
+            do Memory.poke(memAddress + 64, 0);
+            do Memory.poke(memAddress + 96, 0);
+            do Memory.poke(memAddress + 128, 0);
+            do Memory.poke(memAddress + 160, 0);
+            do Memory.poke(memAddress + 192, 0);
+            do Memory.poke(memAddress + 224, 0);
+            do Memory.poke(memAddress + 256, 0);
+            do Memory.poke(memAddress + 288, 0);
+            do Memory.poke(memAddress + 320, 0);
+            do Memory.poke(memAddress + 352, 0);
+            do Memory.poke(memAddress + 384, 0);
+            do Memory.poke(memAddress + 416, 0);
+            do Memory.poke(memAddress + 448, 0);
+            do Memory.poke(memAddress + 480, 0);
+        }
+        else
+        {
+            do Memory.poke(memAddress + 0, 0);
+            do Memory.poke(memAddress + 32, 0);
+            do Memory.poke(memAddress + 64, 518);
+            do Memory.poke(memAddress + 96, 1806);
+            do Memory.poke(memAddress + 128, 3996);
+            do Memory.poke(memAddress + 160, 6904);
+            do Memory.poke(memAddress + 192, 3510);
+            do Memory.poke(memAddress + 224, 26841);
+            do Memory.poke(memAddress + 256, 28291);
+            do Memory.poke(memAddress + 288, 32588);
+            do Memory.poke(memAddress + 320, 30768);
+            do Memory.poke(memAddress + 352, 27152);
+            do Memory.poke(memAddress + 384, 27920);
+            do Memory.poke(memAddress + 416, 2696);
+            do Memory.poke(memAddress + 448, 3332);
+            do Memory.poke(memAddress + 480, 4094);
+        }
+
+        return;
+    }
+}

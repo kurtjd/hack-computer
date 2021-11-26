@@ -1,0 +1,38 @@
+class Main
+{
+    function void main()
+    {
+        var Caterpillager cp;
+        var char key;  // the key currently pressed by the user
+        var char last_key;
+        var boolean exit;
+
+        let cp = Caterpillager.new(0, 0);
+        let exit = false;
+        let last_key = 0;
+
+        do cp.draw(false);
+
+        while (~exit) {
+            let key = Keyboard.keyPressed();
+
+            if (last_key = 0)
+            {
+                if (key = 81)  { let exit = true; }     // q key
+                if (key = 131) { do cp.moveUp(); }   // up arrow
+                if (key = 133) { do cp.moveDown(); }   // down arrow
+                if (key = 130) { do cp.moveLeft(); }   // left arrow
+                if (key = 132) { do cp.moveRight(); }   // right arrow
+
+                let last_key = key;
+            }
+
+            if (key = 0)
+            {
+                let last_key = 0;
+            }
+        }
+
+        return;
+    }
+}

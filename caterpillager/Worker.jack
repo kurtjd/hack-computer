@@ -1,0 +1,52 @@
+class Worker
+{
+    field int x, y;
+
+    constructor Worker new(int startx, int starty)
+    {
+        let x = startx;
+        let y = starty;
+        return this;
+    }
+
+    method void dispose()
+    {
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    method int getX()
+    {
+        return x;
+    }
+
+    method int getY()
+    {
+        return y;
+    }
+
+    method void draw()
+    {
+        var int memAddress;
+        let memAddress = 16384 + (y * 32 * 16) + (x - (32 * (x / 32)));
+
+        do Memory.poke(memAddress + 0, 0);
+        do Memory.poke(memAddress + 32, 0);
+        do Memory.poke(memAddress + 64, 0);
+        do Memory.poke(memAddress + 96, 0);
+        do Memory.poke(memAddress + 128, 0);
+        do Memory.poke(memAddress + 160, 2);
+        do Memory.poke(memAddress + 192, 4);
+        do Memory.poke(memAddress + 224, 11);
+        do Memory.poke(memAddress + 256, 14796);
+        do Memory.poke(memAddress + 288, 20008);
+        do Memory.poke(memAddress + 320, 17428);
+        do Memory.poke(memAddress + 352, -26572);
+        do Memory.poke(memAddress + 384, -6836);
+        do Memory.poke(memAddress + 416, 2720);
+        do Memory.poke(memAddress + 448, 5200);
+        do Memory.poke(memAddress + 480, 8840);
+
+        return;
+    }
+}

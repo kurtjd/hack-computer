@@ -53,15 +53,20 @@ class Main
     {
         var Caterpillager cp;
         var Array walls;
+        var Array workers;
         var char key;  // the key currently pressed by the user
         var char last_key;
         var boolean exit;
         var int num_walls;
+        var int num_workers;
         var Wall cur_wall;
+        var Worker cur_worker;
 
         let cp = Caterpillager.new(0, 0);
         let num_walls = 5;
         let walls = Array.new(num_walls);
+        let num_workers = 5;
+        let workers = Array.new(num_workers);
 
         let exit = false;
         let last_key = 0;
@@ -73,12 +78,25 @@ class Main
         let walls[2] = Wall.new(100, 0, 5, 100);
         let walls[3] = Wall.new(400, 0, 5, 200);
         let walls[4] = Wall.new(200, 50, 100, 5);
+
+        let workers[0] = Worker.new(22, 14);
+        let workers[1] = Worker.new(10, 8);
+        let workers[2] = Worker.new(5, 13);
+        let workers[3] = Worker.new(15, 2);
+        let workers[4] = Worker.new(26, 5);
         
         while (num_walls > 0)
         {
             let cur_wall = walls[5 - num_walls];
             do cur_wall.draw();
             let num_walls = num_walls - 1;
+        }
+
+        while (num_workers > 0)
+        {
+            let cur_worker = workers[5 - num_workers];
+            do cur_worker.draw();
+            let num_workers = num_workers - 1;
         }
 
         while (~exit) {
@@ -124,6 +142,7 @@ class Main
 
         do cp.dispose();
         do walls.dispose();
+        do workers.dispose();
 
         return;
     }

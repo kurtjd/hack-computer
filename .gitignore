@@ -9,5 +9,8 @@ emulator/roms
 vm_translator/hackvm
 vm_translator/vms
 vm_translator/*.asm
+compiler/hackjack
+compiler/src
+compiler/*.vm
 caterpillager/compile.sh
 caterpillager/*.vm

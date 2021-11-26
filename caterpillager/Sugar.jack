@@ -1,0 +1,42 @@
+class Sugar
+{
+    field int x, y;
+
+    constructor Sugar new(int startx, int starty)
+    {
+        let x = startx;
+        let y = starty;
+        return this;
+    }
+
+    method void dispose()
+    {
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    method void draw()
+    {
+        var int memAddress;
+        let memAddress = 16384 + (y * 32 * 16) + (x - (32 * (x / 32)));
+
+        do Memory.poke(memAddress + 0, -1);
+        do Memory.poke(memAddress + 32, -32735);
+        do Memory.poke(memAddress + 64, -32767);
+        do Memory.poke(memAddress + 96, -28671);
+        do Memory.poke(memAddress + 128, -32767);
+        do Memory.poke(memAddress + 160, -32503);
+        do Memory.poke(memAddress + 192, -32767);
+        do Memory.poke(memAddress + 224, -32767);
+        do Memory.poke(memAddress + 256, -16381);
+        do Memory.poke(memAddress + 288, -31743);
+        do Memory.poke(memAddress + 320, -32767);
+        do Memory.poke(memAddress + 352, -32703);
+        do Memory.poke(memAddress + 384, -32763);
+        do Memory.poke(memAddress + 416, -24575);
+        do Memory.poke(memAddress + 448, -32255);
+        do Memory.poke(memAddress + 480, -1);
+
+        return;
+    }
+}

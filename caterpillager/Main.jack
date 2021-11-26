@@ -147,11 +147,6 @@ class Main
             }
         }
 
-        do cp.dispose();
-        do queen.dispose();
-        do walls.dispose();
-        do workers.dispose();
-
         return;
     }
 }

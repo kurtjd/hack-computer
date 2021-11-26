@@ -9,12 +9,6 @@ class Worker
         return this;
     }
 
-    method void dispose()
-    {
-        do Memory.deAlloc(this);
-        return;
-    }
-
     method void draw()
     {
         var int memAddress;

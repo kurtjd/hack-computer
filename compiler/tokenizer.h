@@ -9,7 +9,8 @@ typedef enum
     SYMBOL,
     INT_CONST,
     STR_CONST,
-    IDENTIFIER
+    IDENTIFIER,
+    COMMENT
 } TokenType;
 
 typedef struct Token
@@ -34,6 +35,8 @@ typedef struct TokenList
 typedef struct Tokenizer
 {
     char buf[TOKEN_MAX_LEN];
+    TokenType possible;
+    int in_comment;
     TokenList tokens;
 } Tokenizer;
 
@@ -43,19 +46,11 @@ void tk_init(Tokenizer *tk);
 // Frees all the tokens
 void tk_free(Tokenizer *tk);
 
-// Prints all the tokens
-void tk_print(Tokenizer *tk);
-
 // Adds a character to the token buffer
 bool tk_feed_buf(Tokenizer *tk, char c);
 
-/* Returns the token type of the token buffer
- * A return of NONE means the buffer is not yet a valid token
- */
-TokenType tk_get_buf_type(Tokenizer *tk);
-
-// Convert the token buffer into a token and add it to list
-void tk_add_buf(Tokenizer *tk, TokenType type);
+// Creates a token from the whatever is in the buffer and its possible type
+void tk_flush_buf(Tokenizer *tk);
 
 // Generates an XML file containing the token data
 bool tk_gen_xml(Tokenizer *tk, const char *filename);

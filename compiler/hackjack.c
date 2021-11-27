@@ -2,24 +2,46 @@
 #include <string.h>
 #include "tokenizer.h"
 
-int main(void)
+bool tokenize(const char *filename, Tokenizer *tk)
 {
-    Tokenizer tk;
-    tk_init(&tk);
+    tk_init(tk);
 
-    const char input[] = "{()}\n";
-    for (size_t i = 0; i < strlen(input); i++)
+    FILE *fp = fopen(filename, "r");
+    if (fp == NULL)
     {
-        tk_feed_buf(&tk, input[i]);
-        TokenType type = tk_get_buf_type(&tk);
-        if (type != NONE)
+        fprintf(stderr, "Unable to open %s\n", filename);
+        return false;
+    }
+
+    char c;
+    while ((c = fgetc(fp)) != EOF)
+    {
+        if (!tk_feed_buf(tk, c))
         {
-            tk_add_buf(&tk, type);
+            return false;
         }
     }
 
-    tk_print(&tk);
-    tk_gen_xml(&tk, "Test.xml");
-    tk_free(&tk);
+    fclose(fp);
+    tk_flush_buf(tk);
+
+    return true;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc != 2)
+    {
+        fprintf(stderr, "Usage: ./hackjack <path-to-file>\n");
+        return 1;
+    }
+
+    Tokenizer tk;
+    if (tokenize(argv[1], &tk))
+    {
+        tk_gen_xml(&tk, "Test.xml");
+        tk_free(&tk);
+    }
+
     return 0;
 }

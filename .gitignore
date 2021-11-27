@@ -12,5 +12,6 @@ vm_translator/*.asm
 compiler/hackjack
 compiler/src
 compiler/*.vm
+compiler/*.xml
 caterpillager/compile.sh
 caterpillager/*.vm

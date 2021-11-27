@@ -4,11 +4,12 @@
 
 typedef enum
 {
+    NONE,
     KEYWORD,
     SYMBOL,
-    IDENTIFIER,
     INT_CONST,
-    STR_CONST
+    STR_CONST,
+    IDENTIFIER
 } TokenType;
 
 typedef struct Token
@@ -30,17 +31,31 @@ typedef struct TokenList
     Node *end;
 } TokenList;
 
-// Initializes a single token with given values
-void token_init(Token *token, TokenType type, const char *value);
+typedef struct Tokenizer
+{
+    char buf[TOKEN_MAX_LEN];
+    TokenList tokens;
+} Tokenizer;
 
-// Initializes the token linked list
-void tokens_init(TokenList *tokens);
+// Initializes the tokenizer
+void tk_init(Tokenizer *tk);
 
-// Frees all the tokens/nodes in the linked list
-void tokens_free(TokenList *tokens);
+// Frees all the tokens
+void tk_free(Tokenizer *tk);
 
-// Adds a new token/node to the linked list
-bool tokens_new(TokenList *tokens, TokenType type, const char *value);
+// Prints all the tokens
+void tk_print(Tokenizer *tk);
 
-// Prints all the tokens in the linked list
-void tokens_print(TokenList *tokens);
+// Adds a character to the token buffer
+bool tk_feed_buf(Tokenizer *tk, char c);
+
+/* Returns the token type of the token buffer
+ * A return of NONE means the buffer is not yet a valid token
+ */
+TokenType tk_get_buf_type(Tokenizer *tk);
+
+// Convert the token buffer into a token and add it to list
+void tk_add_buf(Tokenizer *tk, TokenType type);
+
+// Generates an XML file containing the token data
+bool tk_gen_xml(Tokenizer *tk, const char *filename);

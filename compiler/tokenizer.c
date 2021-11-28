@@ -7,6 +7,9 @@
 
 #define NUM_KEYWORDS 21
 
+/*************************************************************
+ *   PRIVATE                                                 *
+ *************************************************************/
 static const char SYMBOLS[] = "{}()[].,;+-*/&|<>=~";
 static const char KEYWORDS[][12] = {
     "class",
@@ -41,7 +44,7 @@ static const char TOKEN_TYPES[][16] = {
 };
 
 // Checks if a given string is a keyword
-static bool is_keyword(const char *str)
+static bool tk_is_keyword(const char *str)
 {
     for (int i = 0; i < NUM_KEYWORDS; i++)
     {
@@ -55,7 +58,7 @@ static bool is_keyword(const char *str)
 }
 
 // Checks if a given char is a symbol
-static bool is_symbol(char c)
+static bool tk_is_symbol(char c)
 {
     if (strchr(SYMBOLS, c))
     {
@@ -66,7 +69,7 @@ static bool is_symbol(char c)
 }
 
 // Initializes a single token with given values
-static void token_init(Token *token, TokenType type, const char *value)
+static void tk_token_init(Token *token, TokenType type, const char *value)
 {
     token->type = type;
     strcpy(token->value, value);
@@ -95,7 +98,7 @@ static bool tk_add(Tokenizer *tk, TokenType type, const char *value)
 
     // Initialize new node and token
     new_node->next = NULL;
-    token_init(&new_node->token, type, value);
+    tk_token_init(&new_node->token, type, value);
 
     // Insert the new node just after the previous end node
     Node *end_node = tk->tokens.end;
@@ -117,19 +120,18 @@ static bool tk_add(Tokenizer *tk, TokenType type, const char *value)
 
 /* Returns the token type of the token buffer
  * A return of NONE means the buffer is not yet a valid token
+ * Also determines if the tokenizer should enter the comment state
  */
 static TokenType tk_get_buf_type(Tokenizer *tk, char c)
 {
-    size_t buf_len = strlen(tk->buf);
-
     /* With the previous token saved, we begin looking for a new one.
      * Only a single character symbol (with the exception of a /,
      * since it could be a comment) can be a token now, anything else is just
      * a possible token.
      */
-    if (buf_len == 0)
+    if (strlen(tk->buf) == 0)
     {
-        if (is_symbol(c) && c != '/')
+        if (tk_is_symbol(c) && c != '/')
         {
             return SYMBOL;
         }
@@ -150,14 +152,14 @@ static TokenType tk_get_buf_type(Tokenizer *tk, char c)
     }
 
     /* Depending on which token we've possibly found,
-     * check for conditions that signify it is actually a token.
+     * check for conditions that signify the end of the token.
      */
     switch (tk->possible)
     {
     case NONE:
         if (!isalnum(c))
         {
-            if (is_keyword(tk->buf))
+            if (tk_is_keyword(tk->buf))
             {
                 return KEYWORD;
             }
@@ -186,12 +188,10 @@ static TokenType tk_get_buf_type(Tokenizer *tk, char c)
         if (c == '/')
         {
             tk->in_comment = 1;
-            tk_clear_buf(tk);
         }
         else if (c == '*')
         {
             tk->in_comment = 2;
-            tk_clear_buf(tk);
         }
         else
         {
@@ -204,47 +204,26 @@ static TokenType tk_get_buf_type(Tokenizer *tk, char c)
         break;
     }
 
+    // If just entered a comment, clear the / that was previously in the buffer
+    if (tk->in_comment > 0)
+    {
+        tk_clear_buf(tk);
+    }
+
     return NONE;
 }
 
 // Convert the token buffer into a token and add it to list
-static bool tk_add_buf(Tokenizer *tk, TokenType type)
+static bool tk_add_from_buf(Tokenizer *tk, TokenType type)
 {
     bool success = tk_add(tk, type, tk->buf);
     tk_clear_buf(tk);
     return success;
 }
 
-void tk_init(Tokenizer *tk)
+// Updates tokenizer comment state and returns true if still in comment
+static bool tk_handle_comment(Tokenizer *tk, char c)
 {
-    tk->in_comment = 0;
-    tk->tokens.start = NULL;
-    tk->tokens.end = NULL;
-    tk_clear_buf(tk);
-}
-
-void tk_free(Tokenizer *tk)
-{
-    Node *node = tk->tokens.start;
-    if (node == NULL)
-    {
-        return;
-    }
-
-    Node *next;
-    do
-    {
-        next = node->next;
-        free(node);
-        node = next;
-    } while (next != NULL);
-}
-
-bool tk_feed_buf(Tokenizer *tk, char c)
-{
-    /* If we are in a comment, check to see if next character takes us out
-     * but don't do anything else.
-     */
     if (tk->in_comment)
     {
         if ((tk->in_comment == 1) && (c == '\n'))
@@ -267,16 +246,27 @@ bool tk_feed_buf(Tokenizer *tk, char c)
         return true;
     }
 
-    /* If we found a token, add it to list before updating buf
-     * with next character.
-     */
+    return false;
+}
+
+// Feeds a character to the tokenizer for it to handle
+static bool tk_feed(Tokenizer *tk, char c)
+{
+    // Don't feed the character if still in a comment
+    if (tk_handle_comment(tk, c))
+    {
+        return true;
+    }
+
     TokenType type = tk_get_buf_type(tk, c);
+    bool success = true;
+
+    /* If the current buffer is a token, add it to token list before adding
+     * the next character to the buffer.
+     */
     if (type != NONE && type != SYMBOL)
     {
-        if (!tk_add_buf(tk, type))
-        {
-            return false;
-        }
+        success = tk_add_from_buf(tk, type);
     }
 
     size_t buf_len = strlen(tk->buf);
@@ -290,24 +280,6 @@ bool tk_feed_buf(Tokenizer *tk, char c)
         {
             tk->buf[buf_len] = c;
         }
-
-        // If current or next characters are symbols (and not a /), add them now
-        if (type == SYMBOL)
-        {
-            if (!tk_add_buf(tk, type))
-            {
-                return false;
-            }
-        }
-        else if (is_symbol(c) && c != '/' && !tk->in_comment)
-        {
-            if (!tk_add_buf(tk, SYMBOL))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
     else
     {
@@ -315,14 +287,87 @@ bool tk_feed_buf(Tokenizer *tk, char c)
                 TOKEN_MAX_LEN);
         return false;
     }
+
+    // If current or next characters are symbols (and not a /), add them now
+    if (type == SYMBOL)
+    {
+        success = tk_add_from_buf(tk, type);
+    }
+    else if (tk_is_symbol(c) && c != '/' && !tk->in_comment)
+    {
+        success = tk_add_from_buf(tk, type);
+    }
+
+    return success;
 }
 
-void tk_flush_buf(Tokenizer *tk)
+// Creates a token from the whatever is in the buffer and its possible type
+static void tk_flush_buf(Tokenizer *tk)
 {
     if (tk->possible != NONE)
     {
-        tk_add_buf(tk, tk->possible);
+        tk_add_from_buf(tk, tk->possible);
     }
+}
+
+// Initializes the tokenizer
+static void tk_init(Tokenizer *tk)
+{
+    tk->in_comment = 0;
+    tk->tokens.start = NULL;
+    tk->tokens.end = NULL;
+    tk_clear_buf(tk);
+}
+
+/*************************************************************
+ *   PUBLIC                                                  *
+ *************************************************************/
+bool tk_tokenize(Tokenizer *tk, const char *filename)
+{
+    tk_init(tk);
+
+    FILE *fp = fopen(filename, "r");
+    if (fp == NULL)
+    {
+        fprintf(stderr, "Unable to open %s\n", filename);
+        return false;
+    }
+
+    char c;
+    while ((c = fgetc(fp)) != EOF)
+    {
+        if (!tk_feed(tk, c))
+        {
+            return false;
+        }
+    }
+
+    fclose(fp);
+    tk_flush_buf(tk);
+
+    return true;
+}
+
+void tk_free(Tokenizer *tk)
+{
+    if (tk == NULL)
+    {
+        return;
+    }
+
+    Node *node = tk->tokens.start;
+    if (node == NULL)
+    {
+        return;
+    }
+
+    Node *next;
+    do
+    {
+        next = node->next;
+        free(node);
+        node = next;
+    } while (next != NULL);
 }
 
 bool tk_gen_xml(Tokenizer *tk, const char *filename)

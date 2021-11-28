@@ -40,17 +40,11 @@ typedef struct Tokenizer
     TokenList tokens;
 } Tokenizer;
 
-// Initializes the tokenizer
-void tk_init(Tokenizer *tk);
+// Generates tokens from an input file
+bool tk_tokenize(Tokenizer *tk, const char *filename);
 
 // Frees all the tokens
 void tk_free(Tokenizer *tk);
-
-// Adds a character to the token buffer
-bool tk_feed_buf(Tokenizer *tk, char c);
-
-// Creates a token from the whatever is in the buffer and its possible type
-void tk_flush_buf(Tokenizer *tk);
 
 // Generates an XML file containing the token data
 bool tk_gen_xml(Tokenizer *tk, const char *filename);

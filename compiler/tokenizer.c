@@ -295,19 +295,35 @@ static bool tk_feed(Tokenizer *tk, char c)
     }
     else if (tk_is_symbol(c) && c != '/' && !tk->in_comment)
     {
-        success = tk_add_from_buf(tk, type);
+        success = tk_add_from_buf(tk, SYMBOL);
     }
 
     return success;
 }
 
 // Creates a token from the whatever is in the buffer and its possible type
-static void tk_flush_buf(Tokenizer *tk)
+static bool tk_flush_buf(Tokenizer *tk)
 {
+    TokenType type;
+    bool found_tok = false;
+
     if (tk->possible != NONE)
     {
-        tk_add_from_buf(tk, tk->possible);
+        type = tk->possible;
+        found_tok = true;
     }
+    else if (tk_is_keyword(tk->buf))
+    {
+        type = KEYWORD;
+        found_tok = true;
+    }
+    else if (strlen(tk->buf) > 0)
+    {
+        type = IDENTIFIER;
+        found_tok = true;
+    }
+
+    return found_tok ? tk_add_from_buf(tk, type) : true;
 }
 
 // Initializes the tokenizer
@@ -343,9 +359,8 @@ bool tk_tokenize(Tokenizer *tk, const char *filename)
     }
 
     fclose(fp);
-    tk_flush_buf(tk);
 
-    return true;
+    return tk_flush_buf(tk);
 }
 
 void tk_free(Tokenizer *tk)

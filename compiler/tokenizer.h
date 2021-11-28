@@ -1,3 +1,6 @@
+#ifndef TOKENIZER_H
+#define TOKENIZER_H
+
 #include <stdbool.h>
 
 #define TOKEN_MAX_LEN 64
@@ -48,3 +51,5 @@ void tk_free(Tokenizer *tk);
 
 // Generates an XML file containing the token data
 bool tk_gen_xml(Tokenizer *tk, const char *filename);
+
+#endif

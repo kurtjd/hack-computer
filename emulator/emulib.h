@@ -1,3 +1,6 @@
+#ifndef EMULIB_H
+#define EMULIB_H
+
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -69,3 +72,5 @@ void hack_print_rom(const Hack *this);
 
 // Prints RAM registers with values != 0
 void hack_print_ram(const Hack *this);
+
+#endif

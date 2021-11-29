@@ -25,7 +25,10 @@ static const Node *cp_subroutine_call(const Node *node);
 static const Node *cp_do(const Node *node);
 static const Node *cp_class(const Node *node);
 static const Node *cp_class_var(const Node *node, bool optional);
-static const Node *cp_subroutine_dec(const Node *node);
+static const Node *cp_subroutine_dec(const Node *node, bool optional);
+static const Node *cp_subroutine_body(const Node *node);
+static const Node *cp_params(const Node *node);
+static const Node *cp_var(const Node *node, bool optional);
 /* END PROTOTYPES */
 
 static const Node *cp_values(const Node *node,
@@ -88,20 +91,12 @@ static const Node *cp_statements(const Node *node)
         return NULL;
     }
 
-    int count = -1;
     const Node *tmp = node;
     do
     {
         tmp = node;
         node = cp_statement(node, true);
-        count++;
     } while (node != NULL);
-
-    if (count < 1)
-    {
-        fprintf(stderr, "Expected at least one statement.\n");
-        return NULL;
-    }
 
     return tmp;
 }
@@ -311,9 +306,13 @@ static const Node *cp_class(const Node *node)
     }
     node = tmp;
 
-    node = cp_subroutine_dec(node);
+    while (node != NULL)
+    {
+        tmp = node;
+        node = cp_subroutine_dec(node, true);
+    }
 
-    node = cp_value(node, "}", false);
+    node = cp_value(tmp, "}", false);
 
     return node;
 }
@@ -336,7 +335,7 @@ static const Node *cp_class_var(const Node *node, bool optional)
 
     while ((tmp = cp_value(tmp, ",", true)) != NULL)
     {
-        tmp = cp_type(node, IDENTIFIER, false);
+        tmp = cp_type(tmp, IDENTIFIER, false);
         tmp2 = tmp;
     }
     if (tmp2 != NULL)
@@ -344,19 +343,116 @@ static const Node *cp_class_var(const Node *node, bool optional)
         node = tmp2;
     }
 
-    node = cp_value(node, ";", true);
+    node = cp_value(node, ";", false);
 
     return node;
 }
 
-static const Node *cp_subroutine_dec(const Node *node)
+static const Node *cp_subroutine_dec(const Node *node, bool optional)
 {
     if (node == NULL)
     {
         return NULL;
     }
 
-    return node->next->next;
+    char subrtn_types[][TOKEN_MAX_LEN] = {"constructor", "function", "method"};
+    node = cp_values(node, subrtn_types, 3, NULL, 0, optional);
+    node = cp_values(node, (char[][TOKEN_MAX_LEN]){TYPES, "void"},
+                     NUM_TYPES + 1, (TokenType[]){IDENTIFIER}, 1, false);
+    node = cp_type(node, IDENTIFIER, false);
+    node = cp_value(node, "(", false);
+
+    const Node *tmp = cp_params(node);
+    if (tmp != NULL)
+    {
+        node = tmp;
+    }
+
+    node = cp_value(node, ")", false);
+    node = cp_subroutine_body(node);
+
+    return node;
+}
+
+static const Node *cp_subroutine_body(const Node *node)
+{
+    if (node == NULL)
+    {
+        return NULL;
+    }
+
+    node = cp_value(node, "{", false);
+
+    const Node *tmp = node;
+    while (node != NULL)
+    {
+        tmp = node;
+        node = cp_var(node, true);
+    }
+
+    node = cp_statements(tmp);
+    node = cp_value(node, "}", false);
+
+    return node;
+}
+
+static const Node *cp_params(const Node *node)
+{
+    if (node == NULL)
+    {
+        return NULL;
+    }
+
+    node = cp_values(node, (char[][TOKEN_MAX_LEN]){TYPES}, NUM_TYPES,
+                     (TokenType[]){IDENTIFIER}, 1, true);
+    node = cp_type(node, IDENTIFIER, false);
+
+    const Node *tmp = node;
+    const Node *tmp2 = NULL;
+
+    while ((tmp = cp_value(tmp, ",", true)) != NULL)
+    {
+        tmp = cp_values(tmp, (char[][TOKEN_MAX_LEN]){TYPES}, NUM_TYPES,
+                        (TokenType[]){IDENTIFIER}, 1, false);
+        tmp = cp_type(tmp, IDENTIFIER, false);
+        tmp2 = tmp;
+    }
+    if (tmp2 != NULL)
+    {
+        node = tmp2;
+    }
+
+    return node;
+}
+
+static const Node *cp_var(const Node *node, bool optional)
+{
+    if (node == NULL)
+    {
+        return NULL;
+    }
+
+    node = cp_value(node, "var", optional);
+    node = cp_values(node, (char[][TOKEN_MAX_LEN]){TYPES}, NUM_TYPES,
+                     (TokenType[]){IDENTIFIER}, 1, false);
+    node = cp_type(node, IDENTIFIER, false);
+
+    const Node *tmp = node;
+    const Node *tmp2 = NULL;
+
+    while ((tmp = cp_value(tmp, ",", true)) != NULL)
+    {
+        tmp = cp_type(tmp, IDENTIFIER, false);
+        tmp2 = tmp;
+    }
+    if (tmp2 != NULL)
+    {
+        node = tmp2;
+    }
+
+    node = cp_value(node, ";", false);
+
+    return node;
 }
 
 void cp_compile(const Tokenizer *tk)

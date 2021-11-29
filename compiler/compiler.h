@@ -3,6 +3,6 @@
 
 #include "tokenizer.h"
 
-void parse(Tokenizer *tk);
+void cp_compile(const Tokenizer *tk);
 
 #endif

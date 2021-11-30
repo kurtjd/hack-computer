@@ -18,5 +18,6 @@ typedef struct LinkedList
 void list_init(LinkedList *list, size_t data_sz);
 void list_free(LinkedList *list);
 Node *list_add(LinkedList *list, void *data);
+void list_reverse_to(LinkedList *list, Node *stop);
 
 #endif

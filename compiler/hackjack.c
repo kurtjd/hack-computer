@@ -13,11 +13,15 @@ int main(int argc, char **argv)
     Tokenizer tk;
     if (tk_tokenize(&tk, argv[1]))
     {
-        tk_gen_xml(&tk, "Test.xml");
+        tk_gen_xml(&tk, "Tokens.xml");
     }
 
-    ps_parse(&tk);
+    Parser ps;
+    ps_parse(&ps, &tk);
+    ps_gen_xml(&ps, "Elements.xml");
 
     tk_free(&tk);
+    ps_free(&ps);
+
     return 0;
 }

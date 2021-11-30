@@ -2,6 +2,21 @@
 #include <stdio.h>
 #include "linkedlist.h"
 
+static void node_free(Node *node)
+{
+    if (node == NULL)
+    {
+        return;
+    }
+
+    if (node->data != NULL)
+    {
+        free(node->data);
+    }
+
+    free(node);
+}
+
 void list_init(LinkedList *list, size_t data_sz)
 {
     list->start = NULL;
@@ -26,13 +41,7 @@ void list_free(LinkedList *list)
     do
     {
         next = node->next;
-
-        if (node->data != NULL)
-        {
-            free(node->data);
-        }
-
-        free(node);
+        node_free(node);
         node = next;
     } while (next != NULL);
 }
@@ -70,4 +79,25 @@ Node *list_add(LinkedList *list, void *data)
     list->end = new_node;
 
     return new_node;
+}
+
+void list_reverse_to(LinkedList *list, Node *stop)
+{
+    Node *node = list->end;
+    if (node == NULL)
+    {
+        return;
+    }
+
+    Node *prev = node;
+
+    while (node != stop)
+    {
+        prev = node->prev;
+        node_free(node);
+        node = prev;
+    }
+
+    list->end = stop;
+    list->end->next = NULL;
 }

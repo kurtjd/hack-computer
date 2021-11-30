@@ -34,14 +34,6 @@ static const char KEYWORDS[][12] = {
     "while",
     "return",
 };
-static const char TOKEN_TYPES[][16] = {
-    "none",
-    "keyword",
-    "symbol",
-    "integerConstant",
-    "stringConstant",
-    "identifier",
-};
 
 // Checks if a given string is a keyword
 static bool tk_is_keyword(const char *str)
@@ -314,6 +306,15 @@ static void tk_init(Tokenizer *tk)
 /*************************************************************
  *   PUBLIC                                                  *
  *************************************************************/
+const char TOKEN_TYPES[6][16] = {
+    "none",
+    "keyword",
+    "symbol",
+    "integerConstant",
+    "stringConstant",
+    "identifier",
+};
+
 bool tk_tokenize(Tokenizer *tk, const char *filename)
 {
     tk_init(tk);

@@ -61,10 +61,19 @@ typedef enum
 typedef struct Element
 {
     ElementType type;
-    Token token;
+    const Token *token;
 } Element;
 
+typedef struct Parser
+{
+    LinkedList elements;
+} Parser;
+
 // Recursively parses tokens by following language rules
-void ps_parse(const Tokenizer *tk);
+void ps_parse(Parser *ps, const Tokenizer *tk);
+
+void ps_free(Parser *ps);
+
+bool ps_gen_xml(Parser *ps, const char *filename);
 
 #endif

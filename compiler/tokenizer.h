@@ -31,6 +31,8 @@ typedef struct Tokenizer
     LinkedList tokens;
 } Tokenizer;
 
+extern const char TOKEN_TYPES[6][16];
+
 // Generates tokens from an input file
 bool tk_tokenize(Tokenizer *tk, const char *filename);
 

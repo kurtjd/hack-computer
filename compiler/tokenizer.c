@@ -89,33 +89,10 @@ static void tk_clear_buf(Tokenizer *tk)
 // Adds a new token
 static bool tk_add(Tokenizer *tk, TokenType type, const char *value)
 {
-    Node *new_node = malloc(sizeof(*new_node));
-    if (new_node == NULL)
-    {
-        fprintf(stderr, "Unable to allocate memory for new token.\n");
-        return false;
-    }
+    Token tok;
+    tk_token_init(&tok, type, value);
 
-    // Initialize new node and token
-    new_node->next = NULL;
-    tk_token_init(&new_node->token, type, value);
-
-    // Insert the new node just after the previous end node
-    Node *end_node = tk->tokens.end;
-    if (end_node != NULL)
-    {
-        new_node->prev = end_node;
-        end_node->next = new_node;
-    }
-    else
-    {
-        new_node->prev = NULL;
-        tk->tokens.start = new_node;
-    }
-
-    tk->tokens.end = new_node;
-
-    return true;
+    return list_add(&tk->tokens, &tok) != NULL ? true : false;
 }
 
 /* Returns the token type of the token buffer
@@ -329,9 +306,8 @@ static bool tk_flush_buf(Tokenizer *tk)
 // Initializes the tokenizer
 static void tk_init(Tokenizer *tk)
 {
+    list_init(&tk->tokens, sizeof(Token));
     tk->in_comment = 0;
-    tk->tokens.start = NULL;
-    tk->tokens.end = NULL;
     tk_clear_buf(tk);
 }
 
@@ -365,24 +341,7 @@ bool tk_tokenize(Tokenizer *tk, const char *filename)
 
 void tk_free(Tokenizer *tk)
 {
-    if (tk == NULL)
-    {
-        return;
-    }
-
-    Node *node = tk->tokens.start;
-    if (node == NULL)
-    {
-        return;
-    }
-
-    Node *next;
-    do
-    {
-        next = node->next;
-        free(node);
-        node = next;
-    } while (next != NULL);
+    list_free(&tk->tokens);
 }
 
 bool tk_gen_xml(Tokenizer *tk, const char *filename)
@@ -401,8 +360,9 @@ bool tk_gen_xml(Tokenizer *tk, const char *filename)
     {
         do
         {
-            const char *type = TOKEN_TYPES[node->token.type];
-            fprintf(fp, "<%s> %s </%s>\n", type, node->token.value, type);
+            Token *tok = node->data;
+            const char *type = TOKEN_TYPES[tok->type];
+            fprintf(fp, "<%s> %s </%s>\n", type, tok->value, type);
         } while ((node = node->next) != NULL);
     }
 

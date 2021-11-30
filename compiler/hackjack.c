@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "tokenizer.h"
-#include "compiler.h"
+#include "parser.h"
 
 int main(int argc, char **argv)
 {
@@ -16,7 +16,7 @@ int main(int argc, char **argv)
         tk_gen_xml(&tk, "Test.xml");
     }
 
-    cp_compile(&tk);
+    ps_parse(&tk);
 
     tk_free(&tk);
     return 0;

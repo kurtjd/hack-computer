@@ -44,6 +44,9 @@ void list_free(LinkedList *list)
         node_free(node);
         node = next;
     } while (next != NULL);
+
+    list->start = NULL;
+    list->end = NULL;
 }
 
 Node *list_add(LinkedList *list, void *data)

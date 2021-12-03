@@ -23,7 +23,6 @@ int main(int argc, char **argv)
 
     CodeGen cg;
     cg_generate(&cg, &ps);
-    cg_print_symtbl(&cg.cls_symbols);
 
     tk_free(&tk);
     ps_free(&ps);

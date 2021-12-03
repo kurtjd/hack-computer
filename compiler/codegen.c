@@ -7,33 +7,59 @@
 
 // Adds a symbol to the specified symbol table
 static void cg_add_symbol(LinkedList *symtbl, const char *name,
-                          const char *type, Kind kind, int position)
+                          const char *type, Kind kind, int index)
 {
     Symbol symbl;
     strcpy(symbl.name, name);
     strcpy(symbl.type, type);
     symbl.kind = kind;
-    symbl.position = position;
+    symbl.index = index;
 
     list_add(symtbl, &symbl);
 }
 
-// Returns the next position for a specified symbol kind in the symbol table
-static int cg_get_next_pos(const LinkedList *symtbl, Kind kind)
+// Looks for a symbol first in the subroutine table and then in the class table
+static const Symbol *cg_get_symbol(CodeGen *cg, const char *name)
 {
-    int pos = 0;
+    bool local = true;
+    Node *node = cg->subr_symbols.start;
+
+    // Find a symbol with a matching name
+    while (node != NULL)
+    {
+        if (strcmp(SymNodeData->name, name) == 0)
+        {
+            return SymNodeData;
+        }
+
+        // If no match in subroutine table, switch to class table
+        node = node->next;
+        if (node == NULL && local)
+        {
+            node = cg->cls_symbols.start;
+            local = false;
+        }
+    }
+
+    return NULL;
+}
+
+// Returns the next index for a specified symbol kind in the symbol table
+static int cg_get_next_index(const LinkedList *symtbl, Kind kind)
+{
+    int index = 0;
     const Node *node = symtbl->start;
     while (node != NULL)
     {
         if (SymNodeData->kind == kind)
         {
-            pos = SymNodeData->position + 1;
+            index = SymNodeData->index + 1;
         }
 
         node = node->next;
     }
 
-    return pos;
+    return index;
 }
 
 // Handles a class or subroutine variable declaration
@@ -71,7 +97,7 @@ static const Node *cg_var_dec(LinkedList *symtbl, const Node *node)
         if (ElemNodeData->token->type == IDENTIFIER)
         {
             cg_add_symbol(symtbl, ElemNodeData->token->value, type, kind,
-                          cg_get_next_pos(symtbl, kind));
+                          cg_get_next_index(symtbl, kind));
         }
 
         node = node->next;
@@ -98,7 +124,7 @@ static const Node *cg_params(CodeGen *cg, const Node *node)
         else if (ElemNodeData->token->type == IDENTIFIER)
         {
             cg_add_symbol(&cg->subr_symbols, ElemNodeData->token->value, type,
-                          ARG, cg_get_next_pos(&cg->subr_symbols, ARG));
+                          ARG, cg_get_next_index(&cg->subr_symbols, ARG));
         }
 
         node = node->next;
@@ -108,17 +134,32 @@ static const Node *cg_params(CodeGen *cg, const Node *node)
 }
 
 // Handles a subroutine declaration
-static void cg_subroutine_dec(CodeGen *cg)
+static void cg_subroutine_dec(CodeGen *cg, const Node *node)
 {
     list_free(&cg->subr_symbols);
     list_init(&cg->subr_symbols, sizeof(Symbol));
+
+    // Automatically add 'this' variable to symbol table if method
+    if (strcmp(ElemNodeData->token->value, "method") == 0)
+    {
+        cg_add_symbol(&cg->subr_symbols, "this", cg->cur_cls, ARG, 0);
+    }
 }
 
 // Handles a class declaration
-static void cg_class_dec(CodeGen *cg)
+static void cg_class_dec(CodeGen *cg, const Node *node)
 {
     list_free(&cg->cls_symbols);
     list_init(&cg->cls_symbols, sizeof(Symbol));
+
+    strcpy(cg->cur_cls, ElemNodeData->token->value);
+}
+
+// Handles an expression
+static const Node *cg_expression(CodeGen *cg, const Node *node)
+{
+    node = cg_term(cg, node);
+    return node;
 }
 
 void cg_generate(CodeGen *cg, const Parser *ps)
@@ -134,10 +175,10 @@ void cg_generate(CodeGen *cg, const Parser *ps)
         switch (elem->type)
         {
         case CLASS:
-            cg_class_dec(cg);
+            cg_class_dec(cg, node->next);
             break;
         case SUBROUTINE_DEC:
-            cg_subroutine_dec(cg);
+            cg_subroutine_dec(cg, node->next->next);
             break;
         case CLASS_VAR_DEC:
             node = cg_var_dec(&cg->cls_symbols, node->next);
@@ -170,7 +211,7 @@ void cg_print_symtbl(LinkedList *symtbl)
     {
         Symbol *symbl = node->data;
         printf("Name: %s\nType: %s\nKind: %d\nPos: %d\n", symbl->name,
-               symbl->type, symbl->kind, symbl->position);
+               symbl->type, symbl->kind, symbl->index);
         node = node->next;
     }
 }

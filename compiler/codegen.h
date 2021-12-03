@@ -17,11 +17,12 @@ typedef struct Symbol
     char name[TOKEN_MAX_LEN];
     char type[TOKEN_MAX_LEN];
     Kind kind;
-    int position;
+    int index;
 } Symbol;
 
 typedef struct CodeGen
 {
+    char cur_cls[TOKEN_MAX_LEN];
     LinkedList cls_symbols;
     LinkedList subr_symbols;
 } CodeGen;

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "tokenizer.h"
 #include "parser.h"
+#include "codegen.h"
 
 int main(int argc, char **argv)
 {
@@ -20,8 +21,13 @@ int main(int argc, char **argv)
     ps_parse(&ps, &tk);
     ps_gen_xml(&ps, "Elements.xml");
 
+    CodeGen cg;
+    cg_generate(&cg, &ps);
+    cg_print_symtbl(&cg.cls_symbols);
+
     tk_free(&tk);
     ps_free(&ps);
+    cg_free(&cg);
 
     return 0;
 }

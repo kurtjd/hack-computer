@@ -5,7 +5,44 @@
 #define ElemNodeData ((Element *)(node->data))
 #define SymNodeData ((Symbol *)(node->data))
 
+static const char KINDS[][8] = {
+    "field",
+    "static",
+    "arg",
+    "local",
+};
+
 // Adds a symbol to the specified symbol table
+static void cg_add_symbol(LinkedList *symtbl, const char *name,
+                          const char *type, Kind kind, int index);
+
+// Looks for a symbol first in the subroutine table and then in the class table
+static const Symbol *cg_get_symbol(CodeGen *cg, const char *name);
+
+// Returns the next index for a specified symbol kind in the symbol table
+static int cg_get_next_index(const LinkedList *symtbl, Kind kind);
+
+// Handles a class or subroutine variable declaration
+static const Node *cg_var_dec(LinkedList *symtbl, const Node *node);
+
+// Handles argument variables declared in a parameter list
+static const Node *cg_params(CodeGen *cg, const Node *node);
+
+// Handles a subroutine declaration
+static void cg_subroutine_dec(CodeGen *cg, const Node *node);
+
+// Handles a class declaration
+static void cg_class_dec(CodeGen *cg, const Node *node);
+
+// Handles an expression
+static const Node *cg_expression(CodeGen *cg, const Node *node);
+
+// Handles a term
+static const Node *cg_term(CodeGen *cg, const Node *node);
+
+// Handles an expression list
+static const Node *cg_expression_list(CodeGen *cg, const Node *node);
+
 static void cg_add_symbol(LinkedList *symtbl, const char *name,
                           const char *type, Kind kind, int index)
 {
@@ -18,7 +55,6 @@ static void cg_add_symbol(LinkedList *symtbl, const char *name,
     list_add(symtbl, &symbl);
 }
 
-// Looks for a symbol first in the subroutine table and then in the class table
 static const Symbol *cg_get_symbol(CodeGen *cg, const char *name)
 {
     bool local = true;
@@ -31,9 +67,9 @@ static const Symbol *cg_get_symbol(CodeGen *cg, const char *name)
         {
             return SymNodeData;
         }
+        node = node->next;
 
         // If no match in subroutine table, switch to class table
-        node = node->next;
         if (node == NULL && local)
         {
             node = cg->cls_symbols.start;
@@ -44,7 +80,6 @@ static const Symbol *cg_get_symbol(CodeGen *cg, const char *name)
     return NULL;
 }
 
-// Returns the next index for a specified symbol kind in the symbol table
 static int cg_get_next_index(const LinkedList *symtbl, Kind kind)
 {
     int index = 0;
@@ -62,7 +97,6 @@ static int cg_get_next_index(const LinkedList *symtbl, Kind kind)
     return index;
 }
 
-// Handles a class or subroutine variable declaration
 static const Node *cg_var_dec(LinkedList *symtbl, const Node *node)
 {
     char type[TOKEN_MAX_LEN];
@@ -106,7 +140,6 @@ static const Node *cg_var_dec(LinkedList *symtbl, const Node *node)
     return node;
 }
 
-// Handles argument variables declared in a parameter list
 static const Node *cg_params(CodeGen *cg, const Node *node)
 {
     char type[TOKEN_MAX_LEN];
@@ -133,7 +166,6 @@ static const Node *cg_params(CodeGen *cg, const Node *node)
     return node;
 }
 
-// Handles a subroutine declaration
 static void cg_subroutine_dec(CodeGen *cg, const Node *node)
 {
     list_free(&cg->subr_symbols);
@@ -146,19 +178,187 @@ static void cg_subroutine_dec(CodeGen *cg, const Node *node)
     }
 }
 
-// Handles a class declaration
 static void cg_class_dec(CodeGen *cg, const Node *node)
 {
     list_free(&cg->cls_symbols);
     list_init(&cg->cls_symbols, sizeof(Symbol));
-
     strcpy(cg->cur_cls, ElemNodeData->token->value);
 }
 
-// Handles an expression
 static const Node *cg_expression(CodeGen *cg, const Node *node)
 {
-    node = cg_term(cg, node);
+    char op;
+    node = cg_term(cg, node->next);
+    node = node->next;
+
+    while (ElemNodeData->type == TOKEN)
+    {
+        op = ElemNodeData->token->value[0];
+        node = cg_term(cg, node->next->next);
+
+        switch (op)
+        {
+        case '+':
+            printf("add\n");
+            break;
+        case '-':
+            printf("sub\n");
+            break;
+        case '*':
+            printf("call Math.multiply\n");
+            break;
+        case '/':
+            printf("Math.divide\n");
+            break;
+        case '&':
+            printf("and\n");
+            break;
+        case '|':
+            printf("or\n");
+            break;
+        case '<':
+            printf("lt\n");
+            break;
+        case '>':
+            printf("gt\n");
+            break;
+        case '=':
+            printf("eq\n");
+            break;
+        default:
+            break;
+        }
+
+        node = node->next;
+    }
+
+    return node;
+}
+
+static const Node *cg_term(CodeGen *cg, const Node *node)
+{
+    switch (ElemNodeData->token->type)
+    {
+    case INT_CONST:
+        printf("push constant %s\n", ElemNodeData->token->value);
+
+        node = node->next;
+        break;
+    case STR_CONST:
+        printf("push constant %ld\n", strlen(ElemNodeData->token->value));
+        printf("call String.new\n");
+
+        for (size_t i = 0; i < strlen(ElemNodeData->token->value); i++)
+        {
+            printf("push constant %d\n", ElemNodeData->token->value[i]);
+            printf("call String.appendChar\n");
+        }
+
+        node = node->next;
+        break;
+    case IDENTIFIER:
+    {
+        const Symbol *symbl = cg_get_symbol(cg, ElemNodeData->token->value);
+        char func_name[TOKEN_MAX_LEN];
+        strcpy(func_name, ElemNodeData->token->value);
+
+        node = node->next;
+        if (ElemNodeData->type == TOKEN)
+        {
+            char op = ElemNodeData->token->value[0];
+            if (op == '[')
+            {
+                printf("push %s %d\n", KINDS[symbl->kind], symbl->index);
+
+                node = cg_expression(cg, node->next->next);
+                node = node->next->next;
+
+                printf("add\n");
+            }
+            else
+            {
+                if (op == '.')
+                {
+                    strcat(func_name, ".");
+                    node = node->next;
+                    strcat(func_name, ElemNodeData->token->value);
+                    node = node->next;
+                }
+
+                node = cg_expression_list(cg, node->next->next);
+                node = node->next->next;
+
+                printf("call %s\n", func_name);
+            }
+        }
+        else
+        {
+            printf("push %s %d\n", KINDS[symbl->kind], symbl->index);
+        }
+
+        break;
+    }
+    case SYMBOL:
+        if (ElemNodeData->token->value[0] == '(')
+        {
+            node = cg_expression(cg, node->next->next);
+            node = node->next;
+        }
+        else
+        {
+            char op = ElemNodeData->token->value[0];
+            node = cg_term(cg, node->next->next);
+
+            if (op == '-')
+            {
+                printf("neg\n");
+            }
+            else if (op == '~')
+            {
+                printf("not\n");
+            }
+        }
+
+        node = node->next;
+        break;
+    case KEYWORD:
+        if (strcmp(ElemNodeData->token->value, "true") == 0)
+        {
+            printf("push constant -1\n");
+        }
+        else if (strcmp(ElemNodeData->token->value, "false") == 0)
+        {
+            printf("push constant 0\n");
+        }
+        else if (strcmp(ElemNodeData->token->value, "null") == 0)
+        {
+            printf("push constant 0\n");
+        }
+        else if (strcmp(ElemNodeData->token->value, "this") == 0)
+        {
+            printf("push pointer 0\n");
+        }
+
+        node = node->next;
+        break;
+    default:
+        break;
+    }
+
+    return node;
+}
+
+static const Node *cg_expression_list(CodeGen *cg, const Node *node)
+{
+    while (ElemNodeData->type != EXPRESSION_LIST_END)
+    {
+        if (ElemNodeData->type == EXPRESSION)
+        {
+            node = cg_expression(cg, node->next);
+        }
+        node = node->next;
+    }
+
     return node;
 }
 
@@ -188,6 +388,9 @@ void cg_generate(CodeGen *cg, const Parser *ps)
             break;
         case PARAM_LIST:
             node = cg_params(cg, node->next);
+            break;
+        case EXPRESSION:
+            node = cg_expression(cg, node->next);
             break;
         default:
             break;

@@ -55,6 +55,21 @@ static const Node *cg_term_symbol(CodeGen *cg, const Node *node);
 // Handles a keyword found in a term
 static const Node *cg_term_keyword(const Node *node);
 
+// Handles a return statement
+static const Node *cg_return(CodeGen *cg, const Node *node);
+
+// Handles a let statement
+static const Node *cg_let(CodeGen *cg, const Node *node);
+
+// Handles a do statement
+static const Node *cg_do(CodeGen *cg, const Node *node);
+
+// Handles an if statement
+static const Node *cg_if(CodeGen *cg, const Node *node);
+
+// Handles a multiple statements
+static const Node *cg_statements(CodeGen *cg, const Node *node);
+
 static void cg_add_symbol(LinkedList *symtbl, const char *name,
                           const char *type, Kind kind, int index)
 {
@@ -408,6 +423,141 @@ static const Node *cg_term_keyword(const Node *node)
     return node->next;
 }
 
+static const Node *cg_return(CodeGen *cg, const Node *node)
+{
+    if (((Element *)(node->next->data))->type == EXPRESSION)
+    {
+        node = cg_expression(cg, node->next->next);
+    }
+    else
+    {
+        printf("push constant 0\n");
+    }
+
+    printf("return\n");
+    return node->next->next;
+}
+
+static const Node *cg_let(CodeGen *cg, const Node *node)
+{
+    // TODO: Handle array
+    const Symbol *symbol = cg_get_symbol(cg, ElemNodeData->token->value);
+    node = cg_expression(cg, node->next->next->next);
+
+    printf("pop %s %d\n", KINDS[symbol->kind], symbol->index);
+
+    return node->next->next;
+}
+
+static const Node *cg_do(CodeGen *cg, const Node *node)
+{
+    char func_name[TOKEN_MAX_LEN];
+    strcpy(func_name, ElemNodeData->token->value);
+
+    node = node->next;
+
+    // If a dot is found, append the next identifier to function name
+    if (ElemNodeData->token->value[0] == '.')
+    {
+        strcat(func_name, ".");
+        node = node->next;
+        strcat(func_name, ElemNodeData->token->value);
+        node = node->next;
+    }
+
+    node = cg_expression_list(cg, node->next->next);
+    node = node->next->next;
+
+    printf("call %s\n", func_name);
+    printf("pop temp 0\n"); // Discard return value
+
+    return node;
+}
+
+static const Node *cg_if(CodeGen *cg, const Node *node)
+{
+    static int if_count = 0;
+    int cur_if_count = if_count++;
+
+    node = cg_expression(cg, node);
+
+    printf("not\n");
+    printf("if-goto %s_IF_END_%d\n", cg->cur_cls, cur_if_count);
+
+    node = cg_statements(cg, node->next->next->next->next);
+    node = node->next->next;
+
+    // Handle else statement if there is one
+    if (ElemNodeData->type != IF_STATEMENT_END)
+    {
+        printf("goto %s_ELSE_END_%d\n", cg->cur_cls, cur_if_count);
+        printf("label %s_IF_END_%d\n", cg->cur_cls, cur_if_count);
+
+        node = cg_statements(cg, node->next->next->next);
+        node = node->next->next;
+
+        printf("label %s_ELSE_END_%d\n", cg->cur_cls, cur_if_count);
+    }
+    else
+    {
+        printf("label %s_IF_END_%d\n", cg->cur_cls, cur_if_count);
+    }
+
+    return node;
+}
+
+static const Node *cg_while(CodeGen *cg, const Node *node)
+{
+    static int while_count = 0;
+    int cur_while_count = while_count++;
+
+    printf("label %s_WHILE_%d\n", cg->cur_cls, cur_while_count);
+
+    node = cg_expression(cg, node);
+
+    printf("not\n");
+    printf("if-goto %s_WHILE_END_%d\n", cg->cur_cls, cur_while_count);
+
+    node = cg_statements(cg, node->next->next->next->next);
+    node = node->next->next;
+
+    printf("goto %s_WHILE_%d\n", cg->cur_cls, cur_while_count);
+    printf("label %s_WHILE_END_%d\n", cg->cur_cls, cur_while_count);
+
+    return node;
+}
+
+static const Node *cg_statements(CodeGen *cg, const Node *node)
+{
+    while (ElemNodeData->type != STATEMENTS_END)
+    {
+        switch (ElemNodeData->type)
+        {
+        case RETURN_STATEMENT:
+            node = cg_return(cg, node->next);
+            break;
+        case LET_STATEMENT:
+            node = cg_let(cg, node->next->next);
+            break;
+        case DO_STATEMENT:
+            node = cg_do(cg, node->next->next);
+            break;
+        case IF_STATEMENT:
+            node = cg_if(cg, node->next->next->next->next);
+            break;
+        case WHILE_STATEMENT:
+            node = cg_while(cg, node->next->next->next->next);
+            break;
+        default:
+            break;
+        }
+
+        node = node->next;
+    }
+
+    return node;
+}
+
 void cg_generate(CodeGen *cg, const Parser *ps)
 {
     list_init(&cg->cls_symbols, sizeof(Symbol));
@@ -416,12 +566,10 @@ void cg_generate(CodeGen *cg, const Parser *ps)
     const Node *node = ps->elements.start;
     while (node != NULL)
     {
-        Element *elem = node->data;
-
-        switch (elem->type)
+        switch (ElemNodeData->type)
         {
         case CLASS:
-            cg_class_dec(cg, node->next);
+            cg_class_dec(cg, node->next->next);
             break;
         case SUBROUTINE_DEC:
             cg_subroutine_dec(cg, node->next->next);
@@ -437,6 +585,9 @@ void cg_generate(CodeGen *cg, const Parser *ps)
             break;
         case EXPRESSION:
             node = cg_expression(cg, node->next);
+            break;
+        case STATEMENTS:
+            node = cg_statements(cg, node->next);
             break;
         default:
             break;

@@ -43,6 +43,18 @@ static const Node *cg_term(CodeGen *cg, const Node *node);
 // Handles an expression list
 static const Node *cg_expression_list(CodeGen *cg, const Node *node);
 
+// Handles a string
+static const Node *cg_string(const Node *node);
+
+// Handles an identifier found in a term
+static const Node *cg_term_identifier(CodeGen *cg, const Node *node);
+
+// Handles a symbol found in a term
+static const Node *cg_term_symbol(CodeGen *cg, const Node *node);
+
+// Handles a keyword found in a term
+static const Node *cg_term_keyword(const Node *node);
+
 static void cg_add_symbol(LinkedList *symtbl, const char *name,
                           const char *type, Kind kind, int index)
 {
@@ -241,106 +253,25 @@ static const Node *cg_term(CodeGen *cg, const Node *node)
     {
     case INT_CONST:
         printf("push constant %s\n", ElemNodeData->token->value);
-
         node = node->next;
         break;
+
     case STR_CONST:
-        printf("push constant %ld\n", strlen(ElemNodeData->token->value));
-        printf("call String.new\n");
-
-        for (size_t i = 0; i < strlen(ElemNodeData->token->value); i++)
-        {
-            printf("push constant %d\n", ElemNodeData->token->value[i]);
-            printf("call String.appendChar\n");
-        }
-
-        node = node->next;
+        node = cg_string(node);
         break;
+
     case IDENTIFIER:
-    {
-        const Symbol *symbl = cg_get_symbol(cg, ElemNodeData->token->value);
-        char func_name[TOKEN_MAX_LEN];
-        strcpy(func_name, ElemNodeData->token->value);
-
-        node = node->next;
-        if (ElemNodeData->type == TOKEN)
-        {
-            char op = ElemNodeData->token->value[0];
-            if (op == '[')
-            {
-                printf("push %s %d\n", KINDS[symbl->kind], symbl->index);
-
-                node = cg_expression(cg, node->next->next);
-                node = node->next->next;
-
-                printf("add\n");
-            }
-            else
-            {
-                if (op == '.')
-                {
-                    strcat(func_name, ".");
-                    node = node->next;
-                    strcat(func_name, ElemNodeData->token->value);
-                    node = node->next;
-                }
-
-                node = cg_expression_list(cg, node->next->next);
-                node = node->next->next;
-
-                printf("call %s\n", func_name);
-            }
-        }
-        else
-        {
-            printf("push %s %d\n", KINDS[symbl->kind], symbl->index);
-        }
-
+        node = cg_term_identifier(cg, node);
         break;
-    }
+
     case SYMBOL:
-        if (ElemNodeData->token->value[0] == '(')
-        {
-            node = cg_expression(cg, node->next->next);
-            node = node->next;
-        }
-        else
-        {
-            char op = ElemNodeData->token->value[0];
-            node = cg_term(cg, node->next->next);
-
-            if (op == '-')
-            {
-                printf("neg\n");
-            }
-            else if (op == '~')
-            {
-                printf("not\n");
-            }
-        }
-
-        node = node->next;
+        node = cg_term_symbol(cg, node);
         break;
+
     case KEYWORD:
-        if (strcmp(ElemNodeData->token->value, "true") == 0)
-        {
-            printf("push constant -1\n");
-        }
-        else if (strcmp(ElemNodeData->token->value, "false") == 0)
-        {
-            printf("push constant 0\n");
-        }
-        else if (strcmp(ElemNodeData->token->value, "null") == 0)
-        {
-            printf("push constant 0\n");
-        }
-        else if (strcmp(ElemNodeData->token->value, "this") == 0)
-        {
-            printf("push pointer 0\n");
-        }
-
-        node = node->next;
+        node = cg_term_keyword(node);
         break;
+
     default:
         break;
     }
@@ -360,6 +291,121 @@ static const Node *cg_expression_list(CodeGen *cg, const Node *node)
     }
 
     return node;
+}
+
+static const Node *cg_string(const Node *node)
+{
+    printf("push constant %ld\n", strlen(ElemNodeData->token->value));
+    printf("call String.new\n");
+
+    // Have to call this OS function for every character
+    for (size_t i = 0; i < strlen(ElemNodeData->token->value); i++)
+    {
+        printf("push constant %d\n", ElemNodeData->token->value[i]);
+        printf("call String.appendChar\n");
+    }
+
+    return node->next;
+}
+
+static const Node *cg_term_identifier(CodeGen *cg, const Node *node)
+{
+    // In case this identifier happens to be a function, save its name
+    char func_name[TOKEN_MAX_LEN];
+    strcpy(func_name, ElemNodeData->token->value);
+
+    // Save the symbol found here for future use
+    const Symbol *symbl = cg_get_symbol(cg, ElemNodeData->token->value);
+
+    /* If a token is found, we are dealing with a function or array.
+     * Otherwise, it's just a variable name.
+     */
+    node = node->next;
+    if (ElemNodeData->type == TOKEN)
+    {
+        char op = ElemNodeData->token->value[0];
+        if (op == '[')
+        {
+            printf("push %s %d\n", KINDS[symbl->kind], symbl->index);
+
+            node = cg_expression(cg, node->next->next);
+            node = node->next->next;
+
+            printf("add\n");
+        }
+        else
+        {
+            // If a dot is found, append the next identifier to function name
+            if (op == '.')
+            {
+                strcat(func_name, ".");
+                node = node->next;
+                strcat(func_name, ElemNodeData->token->value);
+                node = node->next;
+            }
+
+            node = cg_expression_list(cg, node->next->next);
+            node = node->next->next;
+
+            printf("call %s\n", func_name);
+        }
+    }
+    else
+    {
+        printf("push %s %d\n", KINDS[symbl->kind], symbl->index);
+    }
+
+    return node;
+}
+
+static const Node *cg_term_symbol(CodeGen *cg, const Node *node)
+{
+    /* Either we are dealing with a grouped, nested expression or
+     * a unary operator.
+     */
+    if (ElemNodeData->token->value[0] == '(')
+    {
+        node = cg_expression(cg, node->next->next);
+        node = node->next;
+    }
+    else
+    {
+        char op = ElemNodeData->token->value[0];
+        node = cg_term(cg, node->next->next);
+
+        if (op == '-')
+        {
+            printf("neg\n");
+        }
+        else if (op == '~')
+        {
+            printf("not\n");
+        }
+    }
+
+    return node->next;
+}
+
+static const Node *cg_term_keyword(const Node *node)
+{
+    if (strcmp(ElemNodeData->token->value, "true") == 0)
+    {
+        printf("push constant -1\n");
+    }
+    else if (strcmp(ElemNodeData->token->value, "false") == 0)
+    {
+        printf("push constant 0\n");
+    }
+    else if (strcmp(ElemNodeData->token->value, "null") == 0)
+    {
+        printf("push constant 0\n");
+    }
+    else if (strcmp(ElemNodeData->token->value, "this") == 0)
+    {
+        printf("push pointer 0\n");
+    }
+
+    return node->next;
 }
 
 void cg_generate(CodeGen *cg, const Parser *ps)

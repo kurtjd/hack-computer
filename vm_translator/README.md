@@ -3,7 +3,7 @@ This program translates intermediate Hack bytecode (aka 'Virtual Machine' code) 
 
 You can pass it either a single .vm file or a folder containing multiple .vm files. In either case it will generate a single .asm file.
 
-## Example Input (Hello World):
+### Example Input (Hello World):
 ```
 function Main.main 0
 push constant 12
@@ -38,7 +38,7 @@ push constant 0
 return
 ```
 
-## Example Output:
+### Example Output:
 ```
 // Initialize stack
 @256

@@ -1,14 +1,86 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include "codegen.h"
 
 #define ElemNodeData ((Element *)(node->data))
 #define SymNodeData ((Symbol *)(node->data))
 
-static const char KINDS[][8] = {
-    "field",
+#define VM_MAX_LINE (FILENAME_MAX + 128)
+#define VM_LINE_BUF 128
+#define VM_CHUNK_SIZE (VM_LINE_BUF * VM_MAX_LINE)
+
+#define MAX_FILES 32
+
+// Holds the translated VM code
+typedef struct VMProg
+{
+    char *data;
+    size_t size;
+    int line_count;
+} VMProg;
+
+static VMProg vmprog;
+
+// Initialize the vm data
+static bool vm_init(VMProg *prog)
+{
+    prog->size = VM_CHUNK_SIZE;
+    prog->data = malloc(prog->size);
+    if (prog->data == NULL)
+    {
+        fprintf(stderr, "Unable to allocate memory for VM.\n");
+        return false;
+    }
+
+    *prog->data = '\0';
+    prog->line_count = 0;
+
+    return true;
+}
+
+// Add a line of VM
+static void vm_add_line(VMProg *prog, const char *format, ...)
+{
+    char line[VM_MAX_LINE];
+    sprintf(line, "%s\n", format);
+
+    // Allow for variable arguments making it easier to compose vm instructions
+    va_list args;
+    va_start(args, format);
+    vsprintf(prog->data + strlen(prog->data), line, args);
+    va_end(args);
+
+    prog->line_count++;
+
+    if ((prog->line_count % VM_LINE_BUF) == 0)
+    {
+        prog->size += VM_CHUNK_SIZE;
+        prog->data = realloc(prog->data, prog->size);
+        if (prog->data == NULL)
+        {
+            fprintf(stderr, "Unable to reallocate memory for VM.\n");
+            exit(1);
+        }
+    }
+}
+
+// Free the VM data
+static void vm_free(VMProg *prog)
+{
+    if (prog->data != NULL)
+    {
+        free(prog->data);
+    }
+
+    prog->data = NULL;
+}
+
+static const char KINDS[][9] = {
+    "this",
     "static",
-    "arg",
+    "argument",
     "local",
 };
 
@@ -41,7 +113,8 @@ static const Node *cg_expression(CodeGen *cg, const Node *node);
 static const Node *cg_term(CodeGen *cg, const Node *node);
 
 // Handles an expression list
-static const Node *cg_expression_list(CodeGen *cg, const Node *node);
+static const Node *cg_expression_list(CodeGen *cg, const Node *node,
+                                      int *num_expr);
 
 // Handles a string
 static const Node *cg_string(const Node *node);
@@ -86,6 +159,12 @@ static const Symbol *cg_get_symbol(CodeGen *cg, const char *name)
 {
     bool local = true;
     Node *node = cg->subr_symbols.start;
+
+    if (node == NULL)
+    {
+        node = cg->cls_symbols.start;
+        local = false;
+    }
 
     // Find a symbol with a matching name
     while (node != NULL)
@@ -176,7 +255,7 @@ static const Node *cg_params(CodeGen *cg, const Node *node)
      */
     while (ElemNodeData->type != PARAM_LIST_END)
     {
-        // Get the 'type' of variable
+        /*// Get the 'type' of variable
         if (ElemNodeData->token->type == KEYWORD)
         {
             strcpy(type, ElemNodeData->token->value);
@@ -187,7 +266,17 @@ static const Node *cg_params(CodeGen *cg, const Node *node)
                           ARG, cg_get_next_index(&cg->subr_symbols, ARG));
         }
 
+        node = node->next;*/
+
+        strcpy(type, ElemNodeData->token->value);
         node = node->next;
+        cg_add_symbol(&cg->subr_symbols, ElemNodeData->token->value, type,
+                      ARG, cg_get_next_index(&cg->subr_symbols, ARG));
+        node = node->next;
+        if (ElemNodeData->type == TOKEN)
+        {
+            node = node->next;
+        }
     }
 
     return node;
@@ -197,6 +286,11 @@ static void cg_subroutine_dec(CodeGen *cg, const Node *node)
 {
     list_free(&cg->subr_symbols);
     list_init(&cg->subr_symbols, sizeof(Symbol));
+
+    strcpy(cg->cur_func.kind, ElemNodeData->token->value);
+    strcpy(cg->cur_func.type, (((Element *)(node->next->data))->token->value));
+    strcpy(cg->cur_func.name,
+           (((Element *)(node->next->next->data))->token->value));
 
     // Automatically add 'this' variable to symbol table if method
     if (strcmp(ElemNodeData->token->value, "method") == 0)
@@ -226,31 +320,31 @@ static const Node *cg_expression(CodeGen *cg, const Node *node)
         switch (op)
         {
         case '+':
-            printf("add\n");
+            vm_add_line(&vmprog, "add");
             break;
         case '-':
-            printf("sub\n");
+            vm_add_line(&vmprog, "sub");
             break;
         case '*':
-            printf("call Math.multiply\n");
+            vm_add_line(&vmprog, "call Math.multiply 2");
             break;
         case '/':
-            printf("Math.divide\n");
+            vm_add_line(&vmprog, "call Math.divide 2");
             break;
         case '&':
-            printf("and\n");
+            vm_add_line(&vmprog, "and");
             break;
         case '|':
-            printf("or\n");
+            vm_add_line(&vmprog, "or");
             break;
         case '<':
-            printf("lt\n");
+            vm_add_line(&vmprog, "lt");
             break;
         case '>':
-            printf("gt\n");
+            vm_add_line(&vmprog, "gt");
             break;
         case '=':
-            printf("eq\n");
+            vm_add_line(&vmprog, "eq");
             break;
         default:
             break;
@@ -267,7 +361,7 @@ static const Node *cg_term(CodeGen *cg, const Node *node)
     switch (ElemNodeData->token->type)
     {
     case INT_CONST:
-        printf("push constant %s\n", ElemNodeData->token->value);
+        vm_add_line(&vmprog, "push constant %s", ElemNodeData->token->value);
         node = node->next;
         break;
 
@@ -294,12 +388,14 @@ static const Node *cg_term(CodeGen *cg, const Node *node)
     return node;
 }
 
-static const Node *cg_expression_list(CodeGen *cg, const Node *node)
+static const Node *cg_expression_list(CodeGen *cg, const Node *node,
+                                      int *num_expr)
 {
     while (ElemNodeData->type != EXPRESSION_LIST_END)
     {
         if (ElemNodeData->type == EXPRESSION)
         {
+            (*num_expr)++;
             node = cg_expression(cg, node->next);
         }
         node = node->next;
@@ -310,14 +406,14 @@ static const Node *cg_expression_list(CodeGen *cg, const Node *node)
 
 static const Node *cg_string(const Node *node)
 {
-    printf("push constant %ld\n", strlen(ElemNodeData->token->value));
-    printf("call String.new\n");
+    vm_add_line(&vmprog, "push constant %ld", strlen(ElemNodeData->token->value));
+    vm_add_line(&vmprog, "call String.new 1");
 
     // Have to call this OS function for every character
     for (size_t i = 0; i < strlen(ElemNodeData->token->value); i++)
     {
-        printf("push constant %d\n", ElemNodeData->token->value[i]);
-        printf("call String.appendChar\n");
+        vm_add_line(&vmprog, "push constant %d", ElemNodeData->token->value[i]);
+        vm_add_line(&vmprog, "call String.appendChar 2");
     }
 
     return node->next;
@@ -326,7 +422,7 @@ static const Node *cg_string(const Node *node)
 static const Node *cg_term_identifier(CodeGen *cg, const Node *node)
 {
     // In case this identifier happens to be a function, save its name
-    char func_name[TOKEN_MAX_LEN];
+    char func_name[TOKEN_MAX_LEN * 2];
     strcpy(func_name, ElemNodeData->token->value);
 
     // Save the symbol found here for future use
@@ -341,16 +437,32 @@ static const Node *cg_term_identifier(CodeGen *cg, const Node *node)
         char op = ElemNodeData->token->value[0];
         if (op == '[')
         {
-            printf("push %s %d\n", KINDS[symbl->kind], symbl->index);
-
             node = cg_expression(cg, node->next->next);
             node = node->next->next;
 
-            printf("add\n");
+            vm_add_line(&vmprog, "push %s %d", KINDS[symbl->kind],
+                        symbl->index);
+            vm_add_line(&vmprog, "add");
+            vm_add_line(&vmprog, "pop pointer 1");
+            vm_add_line(&vmprog, "push that 0");
         }
         else
         {
-            // If a dot is found, append the next identifier to function name
+            int num_args = 0;
+
+            const Symbol *symbol = cg_get_symbol(cg, func_name);
+            if (symbol != NULL)
+            {
+                strcpy(func_name, symbol->type);
+                vm_add_line(&vmprog, "push %s %d", KINDS[symbol->kind],
+                            symbol->index);
+                num_args++;
+            }
+
+            /* If a dot is found, append the next identifier to function name.
+             * Otherwise make the function name Class.func_name
+             * and call as method
+             */
             if (op == '.')
             {
                 strcat(func_name, ".");
@@ -358,16 +470,25 @@ static const Node *cg_term_identifier(CodeGen *cg, const Node *node)
                 strcat(func_name, ElemNodeData->token->value);
                 node = node->next;
             }
+            else
+            {
+                char tmp_func[TOKEN_MAX_LEN];
+                strcpy(tmp_func, func_name);
+                sprintf(func_name, "%s.%s", cg->cur_cls, tmp_func);
+                num_args++;
 
-            node = cg_expression_list(cg, node->next->next);
+                vm_add_line(&vmprog, "push pointer 0");
+            }
+
+            node = cg_expression_list(cg, node->next->next, &num_args);
             node = node->next->next;
 
-            printf("call %s\n", func_name);
+            vm_add_line(&vmprog, "call %s %d", func_name, num_args);
         }
     }
     else
     {
-        printf("push %s %d\n", KINDS[symbl->kind], symbl->index);
+        vm_add_line(&vmprog, "push %s %d", KINDS[symbl->kind], symbl->index);
     }
 
     return node;
@@ -390,11 +511,11 @@ static const Node *cg_term_symbol(CodeGen *cg, const Node *node)
 
         if (op == '-')
         {
-            printf("neg\n");
+            vm_add_line(&vmprog, "neg");
         }
         else if (op == '~')
         {
-            printf("not\n");
+            vm_add_line(&vmprog, "not");
         }
     }
 
@@ -405,19 +526,20 @@ static const Node *cg_term_keyword(const Node *node)
 {
     if (strcmp(ElemNodeData->token->value, "true") == 0)
     {
-        printf("push constant -1\n");
+        vm_add_line(&vmprog, "push constant 0");
+        vm_add_line(&vmprog, "not");
     }
     else if (strcmp(ElemNodeData->token->value, "false") == 0)
     {
-        printf("push constant 0\n");
+        vm_add_line(&vmprog, "push constant 0");
     }
     else if (strcmp(ElemNodeData->token->value, "null") == 0)
     {
-        printf("push constant 0\n");
+        vm_add_line(&vmprog, "push constant 0");
     }
     else if (strcmp(ElemNodeData->token->value, "this") == 0)
     {
-        printf("push pointer 0\n");
+        vm_add_line(&vmprog, "push pointer 0");
     }
 
     return node->next;
@@ -429,29 +551,56 @@ static const Node *cg_return(CodeGen *cg, const Node *node)
     {
         node = cg_expression(cg, node->next->next);
     }
+    else if (strcmp(((Element *)(node->next->data))->token->value, "this") == 0)
+    {
+        vm_add_line(&vmprog, "push pointer 0");
+    }
     else
     {
-        printf("push constant 0\n");
+        vm_add_line(&vmprog, "push constant 0");
     }
 
-    printf("return\n");
+    vm_add_line(&vmprog, "return");
     return node->next->next;
 }
 
 static const Node *cg_let(CodeGen *cg, const Node *node)
 {
-    // TODO: Handle array
+    bool is_array = false;
     const Symbol *symbol = cg_get_symbol(cg, ElemNodeData->token->value);
-    node = cg_expression(cg, node->next->next->next);
+    node = node->next;
 
-    printf("pop %s %d\n", KINDS[symbol->kind], symbol->index);
+    if (ElemNodeData->token->value[0] == '[')
+    {
+        node = cg_expression(cg, node->next->next);
+        node = node->next->next;
+        is_array = true;
+
+        vm_add_line(&vmprog, "push %s %d", KINDS[symbol->kind], symbol->index);
+        vm_add_line(&vmprog, "add");
+    }
+
+    node = cg_expression(cg, node->next->next);
+
+    if (is_array)
+    {
+        vm_add_line(&vmprog, "pop temp 0");
+        vm_add_line(&vmprog, "pop pointer 1");
+        vm_add_line(&vmprog, "push temp 0");
+        vm_add_line(&vmprog, "pop that 0");
+    }
+    else
+    {
+        vm_add_line(&vmprog, "pop %s %d", KINDS[symbol->kind], symbol->index);
+    }
 
     return node->next->next;
 }
 
 static const Node *cg_do(CodeGen *cg, const Node *node)
 {
-    char func_name[TOKEN_MAX_LEN];
+    int num_args = 0;
+    char func_name[TOKEN_MAX_LEN * 2];
     strcpy(func_name, ElemNodeData->token->value);
 
     node = node->next;
@@ -459,17 +608,36 @@ static const Node *cg_do(CodeGen *cg, const Node *node)
     // If a dot is found, append the next identifier to function name
     if (ElemNodeData->token->value[0] == '.')
     {
+        const Symbol *symbol = cg_get_symbol(cg, func_name);
+        if (symbol != NULL)
+        {
+            strcpy(func_name, symbol->type);
+            vm_add_line(&vmprog, "push %s %d", KINDS[symbol->kind],
+                        symbol->index);
+            num_args++;
+        }
+
         strcat(func_name, ".");
         node = node->next;
         strcat(func_name, ElemNodeData->token->value);
         node = node->next;
     }
+    else
+    {
+        // Otherwise make the function name Class.func_name and call as method
+        char tmp_func[TOKEN_MAX_LEN];
+        strcpy(tmp_func, func_name);
+        sprintf(func_name, "%s.%s", cg->cur_cls, tmp_func);
+        num_args++;
 
-    node = cg_expression_list(cg, node->next->next);
+        vm_add_line(&vmprog, "push pointer 0");
+    }
+
+    node = cg_expression_list(cg, node->next->next, &num_args);
     node = node->next->next;
 
-    printf("call %s\n", func_name);
-    printf("pop temp 0\n"); // Discard return value
+    vm_add_line(&vmprog, "call %s %d", func_name, num_args);
+    vm_add_line(&vmprog, "pop temp 0"); // Discard return value
 
     return node;
 }
@@ -481,8 +649,8 @@ static const Node *cg_if(CodeGen *cg, const Node *node)
 
     node = cg_expression(cg, node);
 
-    printf("not\n");
-    printf("if-goto %s_IF_END_%d\n", cg->cur_cls, cur_if_count);
+    vm_add_line(&vmprog, "not");
+    vm_add_line(&vmprog, "if-goto %s_IF_END_%d", cg->cur_cls, cur_if_count);
 
     node = cg_statements(cg, node->next->next->next->next);
     node = node->next->next;
@@ -490,17 +658,17 @@ static const Node *cg_if(CodeGen *cg, const Node *node)
     // Handle else statement if there is one
     if (ElemNodeData->type != IF_STATEMENT_END)
     {
-        printf("goto %s_ELSE_END_%d\n", cg->cur_cls, cur_if_count);
-        printf("label %s_IF_END_%d\n", cg->cur_cls, cur_if_count);
+        vm_add_line(&vmprog, "goto %s_ELSE_END_%d", cg->cur_cls, cur_if_count);
+        vm_add_line(&vmprog, "label %s_IF_END_%d", cg->cur_cls, cur_if_count);
 
         node = cg_statements(cg, node->next->next->next);
         node = node->next->next;
 
-        printf("label %s_ELSE_END_%d\n", cg->cur_cls, cur_if_count);
+        vm_add_line(&vmprog, "label %s_ELSE_END_%d", cg->cur_cls, cur_if_count);
     }
     else
     {
-        printf("label %s_IF_END_%d\n", cg->cur_cls, cur_if_count);
+        vm_add_line(&vmprog, "label %s_IF_END_%d", cg->cur_cls, cur_if_count);
     }
 
     return node;
@@ -511,18 +679,18 @@ static const Node *cg_while(CodeGen *cg, const Node *node)
     static int while_count = 0;
     int cur_while_count = while_count++;
 
-    printf("label %s_WHILE_%d\n", cg->cur_cls, cur_while_count);
+    vm_add_line(&vmprog, "label %s_WHILE_%d", cg->cur_cls, cur_while_count);
 
     node = cg_expression(cg, node);
 
-    printf("not\n");
-    printf("if-goto %s_WHILE_END_%d\n", cg->cur_cls, cur_while_count);
+    vm_add_line(&vmprog, "not");
+    vm_add_line(&vmprog, "if-goto %s_WHILE_END_%d", cg->cur_cls, cur_while_count);
 
     node = cg_statements(cg, node->next->next->next->next);
     node = node->next->next;
 
-    printf("goto %s_WHILE_%d\n", cg->cur_cls, cur_while_count);
-    printf("label %s_WHILE_END_%d\n", cg->cur_cls, cur_while_count);
+    vm_add_line(&vmprog, "goto %s_WHILE_%d", cg->cur_cls, cur_while_count);
+    vm_add_line(&vmprog, "label %s_WHILE_END_%d", cg->cur_cls, cur_while_count);
 
     return node;
 }
@@ -558,8 +726,48 @@ static const Node *cg_statements(CodeGen *cg, const Node *node)
     return node;
 }
 
+static void cg_subroutine_body(const CodeGen *cg)
+{
+    int num_vars = 0;
+    Node *node = cg->subr_symbols.start;
+    while (node != NULL)
+    {
+        if (SymNodeData->kind == VAR)
+        {
+            num_vars++;
+        }
+        node = node->next;
+    }
+
+    vm_add_line(&vmprog, "function %s.%s %d", cg->cur_cls, cg->cur_func.name, num_vars);
+
+    if (strcmp(cg->cur_func.kind, "method") == 0)
+    {
+        vm_add_line(&vmprog, "push argument 0");
+        vm_add_line(&vmprog, "pop pointer 0");
+    }
+    else if (strcmp(cg->cur_func.kind, "constructor") == 0)
+    {
+        int num_fields = 0;
+        Node *node = cg->cls_symbols.start;
+        while (node != NULL)
+        {
+            if (SymNodeData->kind == FIELD)
+            {
+                num_fields++;
+            }
+            node = node->next;
+        }
+
+        vm_add_line(&vmprog, "push constant %d", num_fields);
+        vm_add_line(&vmprog, "call Memory.alloc 1");
+        vm_add_line(&vmprog, "pop pointer 0");
+    }
+}
+
 void cg_generate(CodeGen *cg, const Parser *ps)
 {
+    vm_init(&vmprog);
     list_init(&cg->cls_symbols, sizeof(Symbol));
     list_init(&cg->subr_symbols, sizeof(Symbol));
 
@@ -572,7 +780,7 @@ void cg_generate(CodeGen *cg, const Parser *ps)
             cg_class_dec(cg, node->next->next);
             break;
         case SUBROUTINE_DEC:
-            cg_subroutine_dec(cg, node->next->next);
+            cg_subroutine_dec(cg, node->next);
             break;
         case CLASS_VAR_DEC:
             node = cg_var_dec(&cg->cls_symbols, node->next);
@@ -587,6 +795,12 @@ void cg_generate(CodeGen *cg, const Parser *ps)
             node = cg_expression(cg, node->next);
             break;
         case STATEMENTS:
+            if ((((Element *)(node->prev->data))->type == VAR_DEC_END) ||
+                (((Element *)(node->prev->prev->data))->type == SUBROUTINE_BODY))
+            {
+                cg_subroutine_body(cg);
+            }
+
             node = cg_statements(cg, node->next);
             break;
         default:
@@ -601,17 +815,39 @@ void cg_free(CodeGen *cg)
 {
     list_free(&cg->cls_symbols);
     list_free(&cg->subr_symbols);
+    vm_free(&vmprog);
 }
 
 void cg_print_symtbl(LinkedList *symtbl)
 {
+    printf("Symbol Table:\n");
     const Node *node = symtbl->start;
 
     while (node != NULL)
     {
         Symbol *symbl = node->data;
-        printf("Name: %s\nType: %s\nKind: %d\nPos: %d\n", symbl->name,
+        printf("Name: %s\nType: %s\nKind: %d\nPos: %d\n\n", symbl->name,
                symbl->type, symbl->kind, symbl->index);
         node = node->next;
     }
+}
+
+bool cg_gen_vm_file(const char *filepath)
+{
+    char newfile[(FILENAME_MAX * 2) + 16] = {'\0'};
+    strcpy(newfile, filepath);
+    newfile[strlen(newfile) - 5] = '\0';
+    strcat(newfile, ".vm");
+
+    FILE *fp = fopen(newfile, "w");
+    if (fp == NULL)
+    {
+        fprintf(stderr, "Unable to generate VM file.\n");
+        return false;
+    }
+
+    fwrite(vmprog.data, strlen(vmprog.data), 1, fp);
+
+    fclose(fp);
+    return true;
 }

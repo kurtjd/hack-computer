@@ -20,9 +20,17 @@ typedef struct Symbol
     int index;
 } Symbol;
 
+typedef struct FuncData
+{
+    char name[TOKEN_MAX_LEN];
+    char kind[16];
+    char type[16];
+} FuncData;
+
 typedef struct CodeGen
 {
     char cur_cls[TOKEN_MAX_LEN];
+    FuncData cur_func;
     LinkedList cls_symbols;
     LinkedList subr_symbols;
 } CodeGen;
@@ -35,5 +43,8 @@ void cg_free(CodeGen *cg);
 
 // Prints the contents of a symbol table
 void cg_print_symtbl(LinkedList *symtbl);
+
+// Generates a VM file
+bool cg_gen_vm_file(const char *name);
 
 #endif

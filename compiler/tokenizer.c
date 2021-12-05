@@ -1,3 +1,5 @@
+// TODO: Fix bug where non-space character right after / symbol makes nonsense
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -126,7 +128,8 @@ static TokenType tk_get_buf_type(Tokenizer *tk, char c)
     switch (tk->possible)
     {
     case NONE:
-        if (!isalnum(c))
+        // if (!isalnum(c))
+        if (isspace(c) || tk_is_symbol(c))
         {
             if (tk_is_keyword(tk->buf))
             {
@@ -233,6 +236,20 @@ static bool tk_feed(Tokenizer *tk, char c)
     /* If the current buffer is a token, add it to token list before adding
      * the next character to the buffer.
      */
+    /* COMMENT BUG if (type == SYMBOL && tk->buf[0] == '/')
+     {
+         success = tk_add_from_buf(tk, type);
+         type = NONE;
+         if (isdigit(c))
+         {
+             tk->possible = INT_CONST;
+         }
+         else
+         {
+             tk->possible = NONE;
+         }
+     }
+    else */
     if (type != NONE && type != SYMBOL)
     {
         success = tk_add_from_buf(tk, type);
@@ -249,6 +266,10 @@ static bool tk_feed(Tokenizer *tk, char c)
         {
             tk->buf[buf_len] = c;
         }
+        /* COMMENT BUG if (c == '/')
+        {
+            tk->possible = COMMENT;
+        }*/
     }
     else
     {
@@ -262,7 +283,7 @@ static bool tk_feed(Tokenizer *tk, char c)
     {
         success = tk_add_from_buf(tk, type);
     }
-    else if (tk_is_symbol(c) && c != '/' && !tk->in_comment)
+    else if (tk_is_symbol(c) && c != '/' && !tk->in_comment && tk->possible != STR_CONST)
     {
         success = tk_add_from_buf(tk, SYMBOL);
     }

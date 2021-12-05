@@ -69,21 +69,23 @@ int main(int argc, char **argv)
         }
 
         Tokenizer tk;
-        tk_tokenize(&tk, FILES[i]);
+        if (tk_tokenize(&tk, FILES[i]))
+        {
+            Parser ps;
+            if (ps_parse(&ps, &tk))
+            {
+                CodeGen cg;
+                cg_generate(&cg, &ps);
 
-        Parser ps;
-        ps_parse(&ps, &tk);
+                cg_gen_vm_file(FILES[i]);
 
-        CodeGen cg;
-        cg_generate(&cg, &ps);
+                tk_free(&tk);
+                ps_free(&ps);
+                cg_free(&cg);
 
-        cg_gen_vm_file(FILES[i]);
-
-        tk_free(&tk);
-        ps_free(&ps);
-        cg_free(&cg);
-
-        fclose(fp);
+                fclose(fp);
+            }
+        }
     }
 
     return 0;

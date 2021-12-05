@@ -66,11 +66,12 @@ typedef struct Element
 
 typedef struct Parser
 {
+    bool error;
     LinkedList elements;
 } Parser;
 
 // Recursively parses tokens by following language rules
-void ps_parse(Parser *ps, const Tokenizer *tk);
+bool ps_parse(Parser *ps, const Tokenizer *tk);
 
 void ps_free(Parser *ps);
 

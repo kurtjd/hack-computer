@@ -113,6 +113,7 @@ static bool ps_remove_null(Parser *ps, const Node *node);
 /* END PROTOTYPES */
 static void ps_init(Parser *ps)
 {
+    ps->error = false;
     list_init(&ps->elements, sizeof(Element));
 }
 
@@ -412,6 +413,7 @@ static const Node *ps_statement(Parser *ps, const Node *node, bool optional)
         if (!optional)
         {
             fprintf(stderr, "Expected statement but received '%s'.\n", val);
+            ps->error = true;
         }
 
         node = NULL;
@@ -749,6 +751,7 @@ static const Node *ps_values(Parser *ps, const Node *node,
     {
         fprintf(stderr, "Expected '%s' but received '%s'.\n",
                 values[0] ? values[0] : "NULL", ((Token *)node->data)->value);
+        ps->error = true;
     }
 
     ps_remove_null(ps, NULL);
@@ -770,7 +773,7 @@ static const Node *ps_type(Parser *ps, const Node *node, TokenType type,
     return ps_values(ps, node, NULL, 0, types, 1, optional);
 }
 
-void ps_parse(Parser *ps, const Tokenizer *tk)
+bool ps_parse(Parser *ps, const Tokenizer *tk)
 {
     ps_init(ps);
 
@@ -783,6 +786,8 @@ void ps_parse(Parser *ps, const Tokenizer *tk)
     */
     ps_add_elem(ps, TOKEN, ((Token *)tk->tokens.end->data));
     ps_add_elem(ps, CLASS_END, NULL);
+
+    return !ps->error;
 }
 
 void ps_free(Parser *ps)

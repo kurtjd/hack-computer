@@ -1,6 +1,8 @@
 # Jack Compiler
 This is a compiler for the simple Jack programming language which outputs intermediate Hack virtual machine code.
 
+It does not currently attempt to make any optimizations and the error reporting is pretty bad, but hey, it works!
+
 # Requirements
 A C compiler
 

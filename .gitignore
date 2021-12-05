@@ -10,7 +10,7 @@ vm_translator/hackvm
 vm_translator/vms
 vm_translator/*.asm
 compiler/hackjack
-compiler/src
+compiler/jack
 compiler/*.vm
 compiler/*.xml
 caterpillager/compile.sh

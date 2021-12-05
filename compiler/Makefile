@@ -1,2 +1,2 @@
-hackjack: hackjack.c tokenizer.c parser.c codegen.c linkedlist.c
-	gcc -O2 -g0 hackjack.c tokenizer.c parser.c codegen.c linkedlist.c -Wall -Wextra -Wpedantic -o hackjack
+hackjack: src/hackjack.c src/tokenizer.c src/parser.c src/codegen.c src/linkedlist.c
+	gcc -O2 -g0 src/hackjack.c src/tokenizer.c src/parser.c src/codegen.c src/linkedlist.c -Wall -Wextra -Wpedantic -o hackjack

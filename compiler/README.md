@@ -3,7 +3,7 @@ This is a compiler for the simple Jack programming language which outputs interm
 
 It does not currently attempt to make any optimizations and the error reporting is pretty bad, but hey, it works!
 
-## Example Input (Hello World):
+### Example Input (Hello World):
 ```
 class Main
 {
@@ -15,7 +15,7 @@ class Main
 }
 ```
 
-## Example Output:
+### Example Output:
 ```
 function Main.main 0
 push constant 12

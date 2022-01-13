@@ -779,7 +779,7 @@ void comp_bin_to_asm(char *comp, char *instruction)
     {
         strcat(instruction, "D-A");
     }
-    else if (strcmp(comp, "000111") == 0)
+    else if (strcmp(comp, "0000111") == 0)
     {
         strcat(instruction, "A-D");
     }

@@ -56,7 +56,8 @@ bool symboltable_add(SymbolTable *table, Symbol symbol, bool is_var)
 
     if (table->count >= MAX_SYMBOLS)
     {
-        fprintf(stderr, "Programs can only contain a max of %d symbols.\n", MAX_SYMBOLS);
+        fprintf(stderr, "Programs can only contain a max of %d symbols.\n",
+        MAX_SYMBOLS);
         return false;
     }
 
@@ -160,7 +161,8 @@ void program_init(Program *program)
 // Add a line to the program.
 void program_add_line(Program *program, char *line, size_t line_len)
 {
-    strncpy(program->assembly + (program->lines * MAX_LINE_LEN), line, line_len + 1);
+    strncpy(program->assembly + (program->lines * MAX_LINE_LEN), line,
+    line_len + 1);
 
     // Expand the program buffer every LINE_CHUNK number of lines.
     program->lines++;
@@ -303,17 +305,21 @@ void split_asm(char *line, char *dest, char *comp, char *jump)
     }
 
     // Get the comp
-    if (dest_pntr == NULL && jump_pntr == NULL)
+    if (dest_pntr && jump_pntr)
     {
-        strncpy(comp, line, strlen(line));
+        strncpy(comp, dest_pntr + 1, strlen(dest_pntr + 1) - 4);
     }
-    else if (dest_pntr == NULL)
+    else if (jump_pntr && dest_pntr == NULL)
     {
         strncpy(comp, line, jump_pntr - line);
     }
-    else
+    else if (dest_pntr && jump_pntr == NULL)
     {
         strcpy(comp, dest_pntr + 1);
+    }
+    else
+    {
+        strncpy(comp, line, strlen(line));
     }
 }
 

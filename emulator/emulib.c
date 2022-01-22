@@ -187,8 +187,8 @@ bool hack_load_rom(Hack *this, const char *filepath)
     /* A Hack ROM is an ASCII file with one instruction per line, so we convert
      * each line to an actual number before storing in emulator ROM.
      */
-    char line[WORD_SIZE + 2];
-    while (fgets(line, WORD_SIZE + 2, fp) != NULL)
+    char line[WORD_SIZE + 5];
+    while (fgets(line, WORD_SIZE + 5, fp) != NULL)
     {
         line[WORD_SIZE] = '\0';
         this->rom[this->program_size++] = strtol(line, NULL, 2);

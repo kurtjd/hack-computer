@@ -44,6 +44,7 @@ static int hack_calc_comp(const Hack *this, uint16_t instruction)
      * MSBs.
      */
     const uint16_t comp_bits = (instruction >> 6) & 0x007F;
+    //printf("   hack_calc_comp(): ALU instruction %X\n", comp_bits);
 
     switch (comp_bits)
     {
@@ -128,17 +129,18 @@ void hack_execute(Hack *this)
 {
     // Fetch instruction from ROM and increment program counter
     uint16_t instruction = this->rom[this->pc++];
-
     // Handle an A instruction
     if (!get_bit(instruction, 0))
     {
         this->a_reg = instruction;
+	//printf("instruction %d:A %d\n",this->pc, instruction);
     }
 
     // Handle a C instruction
     else
     {
         // Compute a value
+	//printf("instruction %d:D %x\n",this->pc, instruction);
         const int comp = hack_calc_comp(this, instruction);
 
         // Store computed value in appropriate destinations

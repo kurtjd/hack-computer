@@ -196,13 +196,14 @@ int main(int argc, char **argv)
     {
         clean_exit(window, surface, 1);
     }
+    //hack_print_rom(&machine);
 
     SDL_Event e;
     bool quit = false;
     while (!quit && machine.pc < machine.program_size)
     {
         // Cap execution speed
-        if (SDL_GetTicks() % (1000 / CPU_FREQ) <= 1)
+        //if (SDL_GetTicks() % (1000 / CPU_FREQ) <= 1)
         {
             hack_execute(&machine);
         }

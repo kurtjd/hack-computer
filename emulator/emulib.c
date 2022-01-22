@@ -128,7 +128,6 @@ void hack_execute(Hack *this)
 {
     // Fetch instruction from ROM and increment program counter
     uint16_t instruction = this->rom[this->pc++];
-
     // Handle an A instruction
     if (!get_bit(instruction, 0))
     {
@@ -184,9 +183,12 @@ bool hack_load_rom(Hack *this, const char *filepath)
 
     /* A Hack ROM is an ASCII file with one instruction per line, so we convert
      * each line to an actual number before storing in emulator ROM.
+     *
+     * Note: that trailing extra space could cause problems here.
+     * We only expect \r\n\0 at the maximum (+3) after the instruction.
      */
-    char line[WORD_SIZE + 2];
-    while (fgets(line, WORD_SIZE + 2, fp) != NULL)
+    char line[WORD_SIZE + 3];
+    while (fgets(line, WORD_SIZE + 3, fp) != NULL)
     {
         line[WORD_SIZE] = '\0';
         this->rom[this->program_size++] = strtol(line, NULL, 2);

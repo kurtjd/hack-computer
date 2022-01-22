@@ -74,6 +74,13 @@ int get_key(SDL_KeyCode key)
         return HACK_KEY_F + (key - SDLK_F1);
     }
 
+    //Translate lower case to upper case to behave just like nand2tetris java CPU Emulator
+    //Note: There could be further discrepancies here.
+    if (key >= 97 && key <= 122) // a..z
+    {
+        return (key-32); //-> A..Z
+    }
+
     switch (key)
     {
     case SDLK_BACKSPACE:

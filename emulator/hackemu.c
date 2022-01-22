@@ -69,9 +69,16 @@ void draw_display(const Hack *machine, SDL_Window *window, SDL_Surface *surface)
 // Returns the proper key for the emulator to handle
 int get_key(SDL_KeyCode key)
 {
+    //printf("get_key(): keycode is %d\n", key);
     if (key >= SDLK_F1 && key <= SDLK_F12)
     {
         return HACK_KEY_F + (key - SDLK_F1);
+    }
+
+    //Translate lower case to upper case just like CPU emulator
+    if (key >= 97 && key <= 122) //a..z
+    {
+        return (key-32);
     }
 
     switch (key)

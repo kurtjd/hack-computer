@@ -69,16 +69,16 @@ void draw_display(const Hack *machine, SDL_Window *window, SDL_Surface *surface)
 // Returns the proper key for the emulator to handle
 int get_key(SDL_KeyCode key)
 {
-    //printf("get_key(): keycode is %d\n", key);
     if (key >= SDLK_F1 && key <= SDLK_F12)
     {
         return HACK_KEY_F + (key - SDLK_F1);
     }
 
-    //Translate lower case to upper case just like CPU emulator
-    if (key >= 97 && key <= 122) //a..z
+    //Translate lower case to upper case to behave just like nand2tetris java CPU Emulator
+    //Note: There could be further discrepancies here.
+    if (key >= 97 && key <= 122) // a..z
     {
-        return (key-32);
+        return (key-32); //-> A..Z
     }
 
     switch (key)
@@ -196,14 +196,13 @@ int main(int argc, char **argv)
     {
         clean_exit(window, surface, 1);
     }
-    //hack_print_rom(&machine);
 
     SDL_Event e;
     bool quit = false;
     while (!quit && machine.pc < machine.program_size)
     {
         // Cap execution speed
-        //if (SDL_GetTicks() % (1000 / CPU_FREQ) <= 1)
+        if (SDL_GetTicks() % (1000 / CPU_FREQ) <= 1)
         {
             hack_execute(&machine);
         }

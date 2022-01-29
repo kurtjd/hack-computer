@@ -1,7 +1,7 @@
-# Hack Emulator
-<img src = "HackEmulator.gif?raw=true">
+# Hack VM Emulator
+<img src = "">
 
-This is an emulator for the Hack computer implemented in C and SDL.
+This is an emulator for the Hack VM implemented in C and SDL.
 
 ## Requirements
 * C compiler
@@ -12,7 +12,7 @@ Simply run `make`
 
 ## Run
 ### Linux
-`./hackemu <path-to-file>`
+`./vmemu <path-to-files>`
 
 ### Windows
-`hackemu.exe <path-to-file>`
+`vmemu.exe <path-to-files>`

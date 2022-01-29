@@ -1,2 +1,5 @@
-hackemu: hackemu.c emulib.c emulib.h
-	gcc -O2 -g0 hackemu.c emulib.c emulib.h -Wall -Wextra -Wpedantic -lSDL2 -o hackemu
+hackemu: vmemu.c vmemulib.c vmemulib.h
+	gcc  -g3 vmemu.c vmemulib.c vmemulib.h -Wall -Wextra -Wpedantic -lSDL2 -o vmemu
+
+clean:
+	rm -f core vmemu vgcore.*

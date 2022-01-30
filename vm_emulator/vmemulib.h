@@ -1,3 +1,5 @@
+#define DEBUG 0
+
 #ifndef EMULIB_H
 #define EMULIB_H
 
@@ -98,6 +100,7 @@ typedef struct Vm
 //    uint16_t vmarg2[VM_SIZE];
 
     uint16_t *vmarg0, *vmarg1, *vmarg2;
+    int32_t *targetline; //where the labels are (for goto, if-goto, call)
     uint16_t *filenum; //track which file we are in in 'line' pc for static element
     char **label; //[VM_SIZE][VM_MAXLABEL]
     
@@ -115,6 +118,8 @@ typedef struct Vm
     //int16_t a_reg, d_reg;
     int nfiles;
     uint16_t **statics;
+    //uint16_t sp; //use ram[0]
+
 } Vm;
 
 // Gets an x and y coordinate from a screen address
@@ -122,6 +127,19 @@ void vm_get_coords(int *x, int *y, uint16_t addr);
 
 // Initialize the machine
 void vm_init(Vm *this);
+
+// Initialize statics segment
+void vm_init_statics(Vm *this, int nfiles);
+
+// Generate label table
+// return 0 for ok, 1 for missing >=1 label
+int vm_init_labeltargets(Vm *this);
+
+// Clear the 'ROM'
+void vm_clear_vmcode(Vm *this);
+
+// Clear the RAM
+void vm_clear_ram(Vm *this);
 
 // Destroy the machine
 void vm_destroy(Vm *this);

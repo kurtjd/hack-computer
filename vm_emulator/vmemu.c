@@ -3,9 +3,6 @@
 
 //Next: Make a label translation table
 
-
-#define DEBUG 1
-
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -458,7 +455,7 @@ bool parse(Vm *this, char *line, int filenum, /* AsmProg *prog, const char *file
         fprintf(stderr, "Unrecognized instruction.\n");
         return false;
     }
-    if(this->pc > this->program_size) this->program_size = this->pc;
+    if(this->pc > this->program_size) this->program_size = this->pc; //increase program_size to this->pc
     return true;
 }
 
@@ -540,6 +537,17 @@ void get_filename(const char *filepath, char *filename)
 bool read_vm_files(Vm *this)
 {
     //add_bootstrap(prog);
+    this->vmarg0[this->pc] = 2; //code for call
+    this->vmarg1[this->pc] = -1; //not used
+    this->vmarg2[this->pc] = 0; //nargs
+    strncpy(this->label[this->pc], "Sys.init", VM_MAXLABEL);
+    if(DEBUG) printf("initial line/ bootstrap: call:pc=%d, %hi %hi %hi ..%s\n", this->pc, this->vmarg0[this->pc],
+    	 this->vmarg1[this->pc], this->vmarg2[this->pc], this->label[this->pc]);
+    this->filenum[this->pc] = 0; //important to know which static segment to target IRRELEVANT HERE
+    this->pc++;
+
+
+    // read all the files
     printf("read_vm_files(): %d files\n", this->nfiles);
     for (int i = 0; i < this->nfiles; i++)
     {
@@ -630,14 +638,13 @@ int main(int argc, char **argv)
 
     vm_init_statics(&machine, nfiles);
 
-    //WIP need to load VM file or files here and find internal representation
-//    if (!hack_load_vmcode(&machine, vm_path))
     if (!read_vm_files(&machine))
     {
         vm_destroy(&machine);
         clean_exit(window, surface, 1);
     }
-    vm_print_vmcode(&machine);
+    vm_init_labeltargets(&machine);
+    if(DEBUG) vm_print_vmcode(&machine);
 
     SDL_Event e;
     bool quit = false;
@@ -646,6 +653,7 @@ int main(int argc, char **argv)
         // Cap execution speed
         //if (SDL_GetTicks() % (1000 / CPU_FREQ) <= 1)
         {
+	    // WIP: Everything is set up. Now run the VM instructions. Implement them
             vm_execute(&machine);
         }
 

@@ -4,7 +4,7 @@
 #include "vmemulib.h"
 
 // Clear the ROM
-static void vm_clear_vmcode(Vm *this)
+void vm_clear_vmcode(Vm *this)
 {
     for (int i = 0; i < MEM_SIZE; i++)
     {
@@ -16,12 +16,14 @@ static void vm_clear_vmcode(Vm *this)
 }
 
 // Clear the RAM
-static void vm_clear_ram(Vm *this)
+void vm_clear_ram(Vm *this)
 {
     for (int i = 0; i < MEM_SIZE; i++)
     {
         this->ram[i] = 0;
     }
+    //set SP back to 256
+    this->ram[0] = 256;
 }
 
 void vm_get_coords(int *x, int *y, uint16_t addr)
@@ -37,6 +39,7 @@ void vm_init(Vm *this)
     this->vmarg1 = calloc(VM_SIZE, sizeof(uint16_t));
     this->vmarg2 = calloc(VM_SIZE, sizeof(uint16_t));
     this->filenum = calloc(VM_SIZE, sizeof(uint16_t));
+    this->targetline = calloc(VM_SIZE, sizeof(int32_t));
     this->ram = calloc(MEM_SIZE, sizeof(int32_t));
     this->label = calloc(VM_SIZE, sizeof(char*));
     this->statics = calloc(MAX_FILES, sizeof(uint16_t*));
@@ -63,6 +66,65 @@ void vm_init_statics(Vm *this, int nfiles)
     }
 }
 
+// This returns 0 if all labeltargets can be resolved.
+// Otherwise 1
+// 1 would mean that we need to internally implement OS functions or that stuff is missing
+// We will initially not implement internal OS functions for simplicity.
+int vm_init_labeltargets(Vm *this)
+{
+	// We need a table to find the correct (VM) line number for specific labels (goto, if-goto, call)
+	// And we need to check if we have a Main.main and Sys.init label
+
+	// Count the labels out of curiosity
+	int i, j, labelcount, functioncount, found, missingflag;
+	i = 0;
+	missingflag = 0;
+	labelcount = 0;
+	functioncount = 0;
+	while(i<this->program_size){
+		if(this->vmarg0[i] == 3){ //function
+			functioncount++;
+		}
+		if(this->vmarg0[i] == 6){ //label
+			labelcount++;
+		}
+		i++;
+	}
+	printf("vm_init_labeltargets(): found %d functions and %d labels.\n", functioncount, labelcount);
+
+	// set the targetline for all goto if-goto and call instructions
+
+	i = 0; //go through all instructions
+	j = 0; //find the right label
+	while(i<this->program_size){
+		if(this->vmarg0[i] == 2 || this->vmarg0[i] == 4 || this->vmarg0[i] == 5){ //call, goto, if-goto
+			//check for matching label or function now.
+			j =0;
+			found =0;
+			while(j<this->program_size){
+				if(this->vmarg0[j] == 3 ||this->vmarg0[j] == 6){ // if function label, check if it matches
+					if(strcmp(this->label[i], this->label[j])==0){
+						this->targetline[i] = j;
+						found = 1;
+						if(DEBUG){
+							printf("  %d %s: %d\n", this->vmarg0[j], this->label[i], j); 
+								//print the resolved target
+						}
+						break; //break the j while loop
+					}
+				}
+				j++;
+			}
+			if(found == 0){
+				printf("vm_init_labeltargets(): did not find target for label %s\n", this->label[i]);
+				missingflag = 1;
+			}
+		}
+		i++;
+	}
+	return missingflag; 
+}
+
 void vm_destroy(Vm *this)
 {
 	int i;
@@ -76,6 +138,8 @@ void vm_destroy(Vm *this)
 		free(this->ram);
 	if(this->filenum != NULL)
 		free(this->filenum);
+	if(this->targetline != NULL)
+		free(this->targetline);
 	if(this->label != NULL){
 		for(i=0;i<VM_SIZE;i++){
     			if(this->label[i] != NULL)

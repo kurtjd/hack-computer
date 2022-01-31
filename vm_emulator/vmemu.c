@@ -1,7 +1,6 @@
-//jmwkrueger@gmail.com
-//work in progress: Write a VM Emulator based on hackemu in C by Kurtis Dinelle
-
-//Next: Make a label translation table
+//jmwkrueger@gmail.com 2022 scalvin1
+//VM Emulator based in parts on hackemu and other work in C by Kurtis Dinelle
+//Context: nand2tetris
 
 #include <stdio.h>
 #include <stdbool.h>

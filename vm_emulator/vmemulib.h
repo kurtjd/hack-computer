@@ -1,4 +1,9 @@
+//jmwkrueger@gmail.com 2022 scalvin1
+//VM Emulator based in parts on hackemu and other work in C by Kurtis Dinelle
+//Context: nand2tetris
+
 #define DEBUG 0
+#define OVERRIDE_OS_FUNCTIONS 1
 
 #ifndef EMULIB_H
 #define EMULIB_H
@@ -38,16 +43,12 @@ typedef enum
  * Therefore, the smallest piece of addressable memory is not a byte but a
  * 16-bit word because the Hack platform offers no other means of addressing
  * within a register of memory.
- *
- * The Hack platform also naturally assumes all data registers to be signed
- * hence the use of int16_t as opposed to uint16_t.
- *
  * Finally, the Hack computer utilizes Harvard architecture hence the separated
  * program and data memory.
  */
 
-//WIP: needs thought for the vmcode
-// we always have sets of 1, 2 or 3, separated by space
+// In the  VM code
+// we always have instructions with 1, 2 or 3 arguments, separated by space
 // I chose an arbitrary numbering here for the encoding...:
 /*
 0 push //3          push what n
@@ -78,8 +79,7 @@ typedef enum
 6 pointer
 7 temp
 
-
-Register
+Registers in the Hack CPU architecture:
 RAM[0]  SP
 RAM[1]  LCL
 RAM[2]  ARG
@@ -87,38 +87,28 @@ RAM[3]  THIS
 RAM[4]  THAT
 RAM[5–12] TEMP
 RAM[13–15] general purpose (only 3 words)
-
 */
 
 typedef struct Vm
 {
     // Read-only instruction memory.
-    //THE FOLLOWING CAUSES STACK PROBLEMS AND CRASHES... FIX WITH POINTERS AND ALLOC
-//    uint16_t vmarg0[VM_SIZE];
-//    char label[VM_SIZE][VM_MAXLABEL];// = {'\0'}; //This is ugly. But I want to get going
-//    uint16_t vmarg1[VM_SIZE];
-//    uint16_t vmarg2[VM_SIZE];
-
     int16_t *vmarg0, *vmarg1, *vmarg2;
     int32_t *targetline; //where the labels are (for goto, if-goto, call)
     int16_t *filenum; //track which file we are in in 'line' pc for static element
     char **label; //[VM_SIZE][VM_MAXLABEL]
-    
+
     // Random-access memory
-    //int16_t ram[VM_SIZE];
-    int32_t *ram; //Let's try this with int and clip to 16bit (&0xffff)
-    		//That way we can sneakily have larger than 32k programs (save pc with more than 16bits)
-		//remember to set type correctly in vm_init()
+    int16_t **statics; //this is where we put the 'static' memory segment
+    int32_t *ram;
+    	//Let's try this with int and clip to 16bit (&0xffff)
+    	//That way we can sneakily have larger than 32k programs (save pc with more than 16bits)
 
-    //uint16_t 
-    int32_t program_size;
-
+    // Some VM variables
+    int32_t program_size; //keep track of it here
     int32_t pc; //points to the next line to be processed
-    int nfiles;
-    int16_t **statics;
-    //uint16_t sp; //use ram[0]
-    int instructioncounter;
-
+    int nfiles; //number of vmfiles (to simplify statics segment handling)
+    //uint16_t sp; //not needed, we put everything else in ram and use ram[0] for SP
+    int instructioncounter; //used for debugging
 } Vm;
 
 // Gets an x and y coordinate from a screen address
@@ -146,12 +136,11 @@ void vm_destroy(Vm *this);
 // Execute the instruction located by the program counter
 void vm_execute(Vm *this);
 
-/* Load a file into the machine's ROM
- * Returns false if unable to open file
- */
+// Load a file into the machine's VM code 'ROM'
+// Returns false if unable to open file
 bool vm_load_vmcode(Vm *this, char *filepath);
 
-// Prints the contents of the machine's ROM one instruction per line
+// Prints the contents of the machine's VM code 'ROM' one instruction per line
 void vm_print_vmcode(Vm *this);
 
 // Prints RAM registers with values != 0

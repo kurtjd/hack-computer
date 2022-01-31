@@ -26,5 +26,8 @@ See [VM Translator README](vm_translator/README.md)
 ## Assembler
 See [Assembler README](assembler/README.md)
 
-## Emulator
+## CPU Emulator
 See [Emulator README](emulator/README.md)
+
+## VM Emulator
+See [Emulator README](vm_emulator/README.md)

@@ -1,4 +1,9 @@
+//jmwkrueger@gmail.com 2022 scalvin1
+//VM Emulator based in parts on hackemu and other work in C by Kurtis Dinelle
+//Context: nand2tetris
+
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include "vmemulib.h"
@@ -129,29 +134,21 @@ int vm_init_labeltargets(Vm *this)
 void vm_destroy(Vm *this)
 {
 	int i;
-	if(this->vmarg0 != NULL)
-		free(this->vmarg0);
-	if(this->vmarg1 != NULL)
-		free(this->vmarg1);
-	if(this->vmarg2 != NULL)
-		free(this->vmarg2);
-	if(this->ram != NULL)
-		free(this->ram);
-	if(this->filenum != NULL)
-		free(this->filenum);
-	if(this->targetline != NULL)
-		free(this->targetline);
+	if(this->vmarg0 != NULL) free(this->vmarg0);
+	if(this->vmarg1 != NULL) free(this->vmarg1);
+	if(this->vmarg2 != NULL) free(this->vmarg2);
+	if(this->ram != NULL) free(this->ram);
+	if(this->filenum != NULL) free(this->filenum);
+	if(this->targetline != NULL) free(this->targetline);
 	if(this->label != NULL){
 		for(i=0;i<VM_SIZE;i++){
-    			if(this->label[i] != NULL)
-    				free(this->label[i]);
+    			if(this->label[i] != NULL) free(this->label[i]);
 	    	}
 	    	free(this->label);
     	}
 	if(this->statics != NULL){
 		for(i=0;i<this->nfiles;i++){
-    			if(this->statics[i] != NULL)
-    				free(this->statics[i]);
+    			if(this->statics[i] != NULL) free(this->statics[i]);
 	    	}
 	    	free(this->statics);
     	}
@@ -170,53 +167,89 @@ void vm_execute_function(Vm *this)
 		this->ram[this->ram[0]] = 0;
 		this->ram[0]++;
 	}
-	this->pc++; //just simply skip the label instruction
+	this->pc++;
 }
 
 void vm_execute_call(Vm *this)
 {
 	int line;
 
-	//handle it here if it is an simple OS function:
-	if(strcmp(this->label[this->pc], "Math.multiply") == 0){
-		printf("vm_execute_call(): Handling Math.multiply\n");
-		short a = (short) this->ram[this->ram[0]-2];
-		short b = (short) this->ram[this->ram[0]-1];
-		this->ram[this->ram[0]-2]= (int)(a*b); //a=a*b
-		this->ram[0]--; //SP--
-		this->pc++;
-		return;
-	}else if(strcmp(this->label[this->pc], "Math.divide") == 0){
-		printf("vm_execute_call(): Handling Math.divide\n");
-		short a = (short) this->ram[this->ram[0]-2];
-		short b = (short) this->ram[this->ram[0]-1];
-		this->ram[this->ram[0]-2]= (int)(a/b); //a=a/b
-		this->ram[0]--; //SP--
-		this->pc++;
-		return;
+	//handle simple OS functions directly
+	if(OVERRIDE_OS_FUNCTIONS){
+		if(strcmp(this->label[this->pc], "Math.multiply") == 0){
+			if(DEBUG) printf("vm_execute_call(): Handling Math.multiply\n");
+			short a = (short) this->ram[this->ram[0]-2];
+			short b = (short) this->ram[this->ram[0]-1];
+			this->ram[this->ram[0]-2]= (int)(a*b); //a=a*b
+			this->ram[0]--; //SP--
+			this->pc++;
+			return;
+		}else if(strcmp(this->label[this->pc], "Math.divide") == 0){
+			if(DEBUG) printf("vm_execute_call(): Handling Math.divide\n");
+			short a = (short) this->ram[this->ram[0]-2];
+			short b = (short) this->ram[this->ram[0]-1];
+			this->ram[this->ram[0]-2]= (int)(a/b); //a=a/b
+			this->ram[0]--; //SP--
+			this->pc++;
+			return;
+		}else if(strcmp(this->label[this->pc], "Math.sqrt") == 0){
+			if(DEBUG) printf("vm_execute_call(): Handling Math.sqrt\n");
+			short a = (short) this->ram[this->ram[0]-1];
+			if(a<0){
+				printf("internal Math.sqrt() --> negative input error\n");
+				exit(1);
+			}
+			this->ram[this->ram[0]-1]= (int)((short)(sqrt(a))); //a=a/b
+			this->pc++;
+			return;
+		}else if(strcmp(this->label[this->pc], "Math.min") == 0){
+			if(DEBUG) printf("vm_execute_call(): Handling Math.min\n");
+			short a = (short) this->ram[this->ram[0]-2];
+			short b = (short) this->ram[this->ram[0]-1];
+			if(a<b){
+				this->ram[this->ram[0]-2]= (int) a; //a=a/b
+			}else{
+				this->ram[this->ram[0]-2]= (int) b;
+			}
+			this->ram[0]--; //SP--
+			this->pc++;
+			return;
+                }else if(strcmp(this->label[this->pc], "Math.max") == 0){
+			if(DEBUG) printf("vm_execute_call(): Handling Math.max\n");
+			short a = (short) this->ram[this->ram[0]-2];
+			short b = (short) this->ram[this->ram[0]-1];
+			if(a<b){
+				this->ram[this->ram[0]-2]= (int) b;
+			}else{
+				this->ram[this->ram[0]-2]= (int) a;
+			}
+			this->ram[0]--; //SP--
+			this->pc++;
+			return;
+		}else if(strcmp(this->label[this->pc], "Math.abs") == 0){
+                        if(DEBUG) printf("vm_execute_call(): Handling Math.abs\n");
+                        short a = (short) this->ram[this->ram[0]-1];
+                        if(a<0){
+                        	this->ram[this->ram[0]-1]= (int)(-a); //a=-a
+                        }
+                        this->pc++;
+                        return;
+                }
 	}
 
-	//save all the things on stack
-	//push return-address
-	//push LCL  ram[1]
-	//push ARG  ram[2]
-	//push THIS ram[3]
-	//push THAT ram[4]
-	//ARG = SP-n-5
-	//LCL = SP
-	this->ram[this->ram[0]] = this->pc+1;//return address
+	//save 'environment' on stack
+	this->ram[this->ram[0]] = this->pc+1;//push return address to stack
 	this->ram[0]++;
-	this->ram[this->ram[0]] = this->ram[1];//LCL
+	this->ram[this->ram[0]] = this->ram[1];//push LCL
 	this->ram[0]++;
-	this->ram[this->ram[0]] = this->ram[2];//ARG
+	this->ram[this->ram[0]] = this->ram[2];//push ARG
 	this->ram[0]++;
-	this->ram[this->ram[0]] = this->ram[3];//THIS
+	this->ram[this->ram[0]] = this->ram[3];//push THIS
 	this->ram[0]++;
-	this->ram[this->ram[0]] = this->ram[4];//THAT
+	this->ram[this->ram[0]] = this->ram[4];//push THAT
 	this->ram[0]++;
-
-	this->ram[2] = this->ram[0]-5-this->vmarg2[this->pc];
-	this->ram[1] = this->ram[0];
+	this->ram[2] = this->ram[0]-5-this->vmarg2[this->pc]; //ARG = SP-n-5
+	this->ram[1] = this->ram[0]; //LCL = SP
 
 	//goto f
 	line = this->targetline[this->pc];
@@ -225,37 +258,16 @@ void vm_execute_call(Vm *this)
 
 void vm_execute_return(Vm *this)
 {
-	int frame, ret, line;
-//FRAME = LCL
-//RET = *(FRAME-5)
-// *ARG = pop()
-//SP = ARG+1
-//THAT = *(FRAME-1)
-//THIS = *(FRAME-2)
-//ARG = *(FRAME-3)
-//LCL = *(FRAME-4)
-//goto RET
-	//save all the things on stack
-	//push return-address
-	//push LCL  ram[1]
-	//push ARG  ram[2]
-	//push THIS ram[3]
-	//push THAT ram[4]
-	//ARG = SP-n-5
-	//LCL = SP
-
+	int frame, ret;
 	frame = this->ram[1];//LCL
 	ret = this->ram[frame - 5];
 	this->ram[this->ram[2]] = this->ram[this->ram[0]-1]; // *ARG = pop
-//?	this->ram[0] = this->ram[this->ram[2]+1]; //SP = ARG+1
 	this->ram[0] = this->ram[2]+1; //SP = ARG+1
 	this->ram[4] = this->ram[frame - 1]; //THAT
 	this->ram[3] = this->ram[frame - 2]; //THAT
 	this->ram[2] = this->ram[frame - 3]; //ARG
 	this->ram[1] = this->ram[frame - 4]; //LCL
-
-	//goto f
-	this->pc=ret;
+	this->pc=ret; //goto return address
 }
 
 void vm_execute_add(Vm *this) 
@@ -271,7 +283,7 @@ void vm_execute_sub(Vm *this)
 {
 	short a = (short) this->ram[this->ram[0]-2];
 	short b = (short) this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-2]= (int)(a-b); //a=a+b
+	this->ram[this->ram[0]-2]= (int)(a-b); //a=a-b
 	this->ram[0]--; //SP--
 	this->pc++;
 }
@@ -298,9 +310,9 @@ void vm_execute_eq(Vm *this)
 {
 	short a = (short) this->ram[this->ram[0]-2];
 	short b = (short) this->ram[this->ram[0]-1];
-	if(a==b){//true -> -1
+	if(a==b){// true --> -1
 		this->ram[this->ram[0]-2]= -1;
-	}else{// false -> 0
+	}else{// false --> 0
 		this->ram[this->ram[0]-2]= 0;
 	}
 	this->ram[0]--; //SP--
@@ -311,9 +323,9 @@ void vm_execute_lt(Vm *this)
 {
 	short a = (short) this->ram[this->ram[0]-2];
 	short b = (short) this->ram[this->ram[0]-1];
-	if(a<b){//true --> -1
+	if(a<b){// true --> -1
 		this->ram[this->ram[0]-2]= -1;
-	}else{
+	}else{// false --> 0
 		this->ram[this->ram[0]-2]= 0;
 	}
 	this->ram[0]--; //SP--
@@ -324,9 +336,9 @@ void vm_execute_gt(Vm *this)
 {
 	short a = (short) this->ram[this->ram[0]-2];
 	short b = (short) this->ram[this->ram[0]-1];
-	if(a>b){//true --> -1
+	if(a>b){// true --> -1
 		this->ram[this->ram[0]-2]= -1;
-	}else{
+	}else{// false --> 0
 		this->ram[this->ram[0]-2]= 0;
 	}
 	this->ram[0]--; //SP--
@@ -376,7 +388,7 @@ void vm_execute_ifgoto(Vm *this)
 5 that
 6 pointer
 7 temp
-Register
+CPU Register
 RAM[0]  SP
 RAM[1]  LCL
 RAM[2]  ARG
@@ -387,7 +399,7 @@ RAM[13–15] general purpose (only 3 words)
 */
 void vm_execute_push(Vm *this)
 {
-	short i; //pushvalue
+	short i = 0; //pushvalue
 	//Get the push value
 	switch (this->vmarg1[this->pc])
 	{
@@ -417,6 +429,7 @@ void vm_execute_push(Vm *this)
 		break;
 	default:
 		printf("vm_execute_push(): unhandled case\n");
+		exit(1);
 	}
 
 	//Push the value onto stack
@@ -465,6 +478,7 @@ void vm_execute_pop(Vm *this)
 		break;
 	default:
 		printf("vm_execute_pop(): unhandled case\n");
+		exit(1);
 	}
 
 	//Increase PC

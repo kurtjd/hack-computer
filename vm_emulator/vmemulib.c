@@ -61,6 +61,7 @@ void vm_init(Vm *this)
     this->ram[0] = 256; //set SP
     this->ram[KEYBD_ADDR] = 0;
     this->instructioncounter = 0;
+    this->quitflag = 0;
 }
 
 void vm_init_statics(Vm *this, int nfiles)
@@ -176,7 +177,12 @@ void vm_execute_call(Vm *this)
 
 	//handle simple OS functions directly
 	if(OVERRIDE_OS_FUNCTIONS){
-		if(strcmp(this->label[this->pc], "Math.multiply") == 0){
+		// Math.vm
+		if(strcmp(this->label[this->pc], "Math.init") == 0){
+			if(DEBUG) printf("vm_execute_call(): Handling Math.init\n");
+			this->pc++; //just do nothing, we simply don't need to set anything up. All OS Math functions handled internally.
+			return;
+		} else if(strcmp(this->label[this->pc], "Math.multiply") == 0){
 			if(DEBUG) printf("vm_execute_call(): Handling Math.multiply\n");
 			short a = (short) this->ram[this->ram[0]-2];
 			short b = (short) this->ram[this->ram[0]-1];
@@ -227,14 +233,23 @@ void vm_execute_call(Vm *this)
 			this->pc++;
 			return;
 		}else if(strcmp(this->label[this->pc], "Math.abs") == 0){
-                        if(DEBUG) printf("vm_execute_call(): Handling Math.abs\n");
-                        short a = (short) this->ram[this->ram[0]-1];
-                        if(a<0){
-                        	this->ram[this->ram[0]-1]= (int)(-a); //a=-a
-                        }
-                        this->pc++;
+			if(DEBUG) printf("vm_execute_call(): Handling Math.abs\n");
+			short a = (short) this->ram[this->ram[0]-1];
+			if(a<0){
+				this->ram[this->ram[0]-1]= (int)(-a); //a=-a
+			}
+			this->pc++;
+			return;
+		}else
+
+		// Now Sys.vm
+		if(strcmp(this->label[this->pc], "Sys.halt") == 0){
+                        if(DEBUG) printf("vm_execute_call(): Handling Sys.halt\n");
+                        sleep(1); //seconds
+                        this->quitflag = 1;
+                        //this->pc++;
                         return;
-                }
+		}
 	}
 
 	//save 'environment' on stack
@@ -274,7 +289,7 @@ void vm_execute_add(Vm *this)
 {
 	short a = (short) this->ram[this->ram[0]-2];
 	short b = (short) this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-2]= (int)(a+b); //a=a+b
+	this->ram[this->ram[0]-2]= (int)((short)(a+b)); //a=a+b
 	this->ram[0]--; //SP--
 	this->pc++;
 }
@@ -283,7 +298,7 @@ void vm_execute_sub(Vm *this)
 {
 	short a = (short) this->ram[this->ram[0]-2];
 	short b = (short) this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-2]= (int)(a-b); //a=a-b
+	this->ram[this->ram[0]-2]= (int)((short)(a-b)); //a=a-b
 	this->ram[0]--; //SP--
 	this->pc++;
 }
@@ -292,7 +307,7 @@ void vm_execute_and(Vm *this)
 {
 	short a = (short) this->ram[this->ram[0]-2];
 	short b = (short) this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-2]= (int)(a&b); //a=a&b
+	this->ram[this->ram[0]-2]= (int)((short)(a&b)); //a=a&b
 	this->ram[0]--; //SP--
 	this->pc++;
 }
@@ -301,7 +316,7 @@ void vm_execute_or(Vm *this)
 {
 	short a = (short) this->ram[this->ram[0]-2];
 	short b = (short) this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-2]= (int)(a|b); //a=a|b
+	this->ram[this->ram[0]-2]= (int)((short)(a|b)); //a=a|b
 	this->ram[0]--; //SP--
 	this->pc++;
 }
@@ -369,7 +384,7 @@ void vm_execute_goto(Vm *this)
 void vm_execute_ifgoto(Vm *this) 
 {
 	int line;
-	if(this->ram[this->ram[0] -1] == -1){
+	if((short) (this->ram[this->ram[0] -1]) == (short)(-1)){
 		line = this->targetline[this->pc];
 		this->pc=line;
 	} else {
@@ -404,28 +419,28 @@ void vm_execute_push(Vm *this)
 	switch (this->vmarg1[this->pc])
 	{
 	case 0: //ARG RAM[2]
-		i = this->ram[this->ram[2]+this->vmarg2[this->pc]];
+		i = (short) this->ram[this->ram[2]+this->vmarg2[this->pc]];
 		break;
 	case 1: //LCL RAM[1]
-		i = this->ram[this->ram[1]+this->vmarg2[this->pc]];
+		i = (short) this->ram[this->ram[1]+this->vmarg2[this->pc]];
 		break;
 	case 2: //static (special)
-		i = this->statics[this->filenum[this->pc]][this->vmarg2[this->pc]];
+		i = (short) this->statics[this->filenum[this->pc]][this->vmarg2[this->pc]];
 		break;
 	case 3: //constant 
-		i = this->vmarg2[this->pc]; 
+		i = (short) this->vmarg2[this->pc]; 
 		break;
 	case 4: //THIS RAM[3]
-		i = this->ram[this->ram[3]+this->vmarg2[this->pc]];
+		i = (short) this->ram[this->ram[3]+this->vmarg2[this->pc]];
 		break;
 	case 5: //THAT RAM[4]
-		i = this->ram[this->ram[4]+this->vmarg2[this->pc]];
+		i = (short) this->ram[this->ram[4]+this->vmarg2[this->pc]];
 		break;
 	case 6: //pointer [0] or [1]
-		i = this->ram[3+this->vmarg2[this->pc]];
+		i = (short) this->ram[3+this->vmarg2[this->pc]];
 		break;
 	case 7: //TEMP
-		i = this->ram[5+this->vmarg2[this->pc]];
+		i = (short) this->ram[5+this->vmarg2[this->pc]];
 		break;
 	default:
 		printf("vm_execute_push(): unhandled case\n");
@@ -433,7 +448,7 @@ void vm_execute_push(Vm *this)
 	}
 
 	//Push the value onto stack
-	this->ram[this->ram[0]]= i;
+	this->ram[this->ram[0]]= (int) i;
 
 	//Increase SP
 	this->ram[0]++;
@@ -446,35 +461,35 @@ void vm_execute_pop(Vm *this)
 {
 	short i; //popvalue
 	//Get the pop value
-	i = this->ram[this->ram[0] - 1];
+	i = (short) this->ram[this->ram[0] - 1];
 	this->ram[0]--; //SP--
 
 	//put the value where it should go
 	switch (this->vmarg1[this->pc])
 	{
 	case 0: //ARG RAM[2]
-		this->ram[this->ram[2]+this->vmarg2[this->pc]] = i;
+		this->ram[this->ram[2]+this->vmarg2[this->pc]] = (int) i;
 		break;
 	case 1: //LCL RAM[1]
-		this->ram[this->ram[1]+this->vmarg2[this->pc]] = i;
+		this->ram[this->ram[1]+this->vmarg2[this->pc]] = (int) i;
 		break;
 	case 2: //static (special)
-		this->statics[this->filenum[this->pc]][this->vmarg2[this->pc]] = i;
+		this->statics[this->filenum[this->pc]][this->vmarg2[this->pc]] = (int) i;
 		break;
 	case 3: //constant makes no sense
 		printf("vm_execute_pop(): popping to constant makes no sense!\n");
 		break;
 	case 4: //THIS RAM[3]
-		this->ram[this->ram[3]+this->vmarg2[this->pc]] = i;
+		this->ram[this->ram[3]+this->vmarg2[this->pc]] = (int) i;
 		break;
 	case 5: //THAT RAM[4]
-		this->ram[this->ram[4]+this->vmarg2[this->pc]] = i;
+		this->ram[this->ram[4]+this->vmarg2[this->pc]] = (int) i;
 		break;
 	case 6: //pointer [0] or [1]
-		this->ram[3+this->vmarg2[this->pc]] = i;
+		this->ram[3+this->vmarg2[this->pc]] = (int) i;
 		break;
 	case 7: //TEMP
-		this->ram[5+this->vmarg2[this->pc]] = i;
+		this->ram[5+this->vmarg2[this->pc]] = (int) i;
 		break;
 	default:
 		printf("vm_execute_pop(): unhandled case\n");

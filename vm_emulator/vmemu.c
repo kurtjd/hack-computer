@@ -240,9 +240,7 @@ bool line_is_empty(const char *line)
 // WIP just store in memory, representation TBD
 bool parse(Vm *this, char *line, int filenum, /* AsmProg *prog, const char *filename, */ char *cur_func, char *cur_subfun)
 {
-    // The 'arguments' of a line (the instruction itself plus additional
-    // arguments)
-    //
+    // The 'arguments' of a line (the instruction itself plus additional arguments)
     char args[VM_MAX_ARGS][VM_MAX_ARG_LEN] = {'\0'};
     char temp_line[VM_MAX_LINE];
 
@@ -596,6 +594,7 @@ bool read_vm_files(Vm *this)
 
         fclose(fp);
     }
+    printf("read_vm_files(): Finished reading %d files. Total number of instructions %d\n", this->nfiles, this->program_size);
 
     //reset the program counter
     this->pc = 0;
@@ -655,7 +654,7 @@ int main(int argc, char **argv)
 
     SDL_Event e;
     bool quit = false;
-    while (!quit && machine.pc < machine.program_size)
+    while (!machine.quitflag && !quit && machine.pc < machine.program_size)
     {
         // Cap execution speed
         if (SDL_GetTicks() % (1000 / CPU_FREQ) <= 1)

@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <unistd.h> //sleep
 
 #define MEM_SIZE 32768
 #define VM_SIZE 262144 //This should dynamically adjust to the number of VM instruction lines. For now MEM_SIZE*8
@@ -109,6 +110,7 @@ typedef struct Vm
     int nfiles; //number of vmfiles (to simplify statics segment handling)
     //uint16_t sp; //not needed, we put everything else in ram and use ram[0] for SP
     int instructioncounter; //used for debugging
+    int quitflag; //set this and the machine will be destroyed by the main loop
 } Vm;
 
 // Gets an x and y coordinate from a screen address

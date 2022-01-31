@@ -99,13 +99,13 @@ typedef struct Vm
 //    uint16_t vmarg1[VM_SIZE];
 //    uint16_t vmarg2[VM_SIZE];
 
-    uint16_t *vmarg0, *vmarg1, *vmarg2;
+    int16_t *vmarg0, *vmarg1, *vmarg2;
     int32_t *targetline; //where the labels are (for goto, if-goto, call)
-    uint16_t *filenum; //track which file we are in in 'line' pc for static element
+    int16_t *filenum; //track which file we are in in 'line' pc for static element
     char **label; //[VM_SIZE][VM_MAXLABEL]
     
     // Random-access memory
-//    int16_t ram[VM_SIZE];
+    //int16_t ram[VM_SIZE];
     int32_t *ram; //Let's try this with int and clip to 16bit (&0xffff)
     		//That way we can sneakily have larger than 32k programs (save pc with more than 16bits)
 		//remember to set type correctly in vm_init()
@@ -113,12 +113,11 @@ typedef struct Vm
     //uint16_t 
     int32_t program_size;
 
-    // A (address), D, and program counter CPU registers
-    int32_t pc;
-    //int16_t a_reg, d_reg;
+    int32_t pc; //points to the next line to be processed
     int nfiles;
-    uint16_t **statics;
+    int16_t **statics;
     //uint16_t sp; //use ram[0]
+    int instructioncounter;
 
 } Vm;
 
@@ -150,12 +149,12 @@ void vm_execute(Vm *this);
 /* Load a file into the machine's ROM
  * Returns false if unable to open file
  */
-bool vm_load_vmcode(Vm *this, const char *filepath);
+bool vm_load_vmcode(Vm *this, char *filepath);
 
 // Prints the contents of the machine's ROM one instruction per line
-void vm_print_vmcode(const Vm *this);
+void vm_print_vmcode(Vm *this);
 
 // Prints RAM registers with values != 0
-void vm_print_ram(const Vm *this);
+void vm_print_ram(Vm *this);
 
 #endif

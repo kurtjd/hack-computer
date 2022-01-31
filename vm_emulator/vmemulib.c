@@ -55,6 +55,7 @@ void vm_init(Vm *this)
     vm_clear_ram(this);
     this->ram[0] = 256; //set SP
     this->ram[KEYBD_ADDR] = 0;
+    this->instructioncounter = 0;
 }
 
 void vm_init_statics(Vm *this, int nfiles)
@@ -156,11 +157,382 @@ void vm_destroy(Vm *this)
     	}
 }
 
-void vm_execute(Vm *this)
+void vm_execute_label(Vm *this)
 {
+	this->pc++; //just simply skip the label instruction
 }
 
-void vm_print_vmcode(const Vm *this)
+void vm_execute_function(Vm *this)
+{
+	int i, k;
+	k = this->vmarg2[this->pc]; //k local variables to clear
+	for(i=0;i<k;i++){
+		this->ram[this->ram[0]] = 0;
+		this->ram[0]++;
+	}
+	this->pc++; //just simply skip the label instruction
+}
+
+void vm_execute_call(Vm *this)
+{
+	int line;
+	//save all the things on stack
+	//push return-address
+	//push LCL  ram[1]
+	//push ARG  ram[2]
+	//push THIS ram[3]
+	//push THAT ram[4]
+	//ARG = SP-n-5
+	//LCL = SP
+	this->ram[this->ram[0]] = this->pc+1;//return address
+	this->ram[0]++;
+	this->ram[this->ram[0]] = this->ram[1];//LCL
+	this->ram[0]++;
+	this->ram[this->ram[0]] = this->ram[2];//ARG
+	this->ram[0]++;
+	this->ram[this->ram[0]] = this->ram[3];//THIS
+	this->ram[0]++;
+	this->ram[this->ram[0]] = this->ram[4];//THAT
+	this->ram[0]++;
+
+	this->ram[2] = this->ram[0]-5-this->vmarg2[this->pc];
+	this->ram[1] = this->ram[0];
+
+	//goto f
+	line = this->targetline[this->pc];
+	this->pc=line;
+}
+
+void vm_execute_return(Vm *this)
+{
+	int frame, ret, line;
+//FRAME = LCL
+//RET = *(FRAME-5)
+// *ARG = pop()
+//SP = ARG+1
+//THAT = *(FRAME-1)
+//THIS = *(FRAME-2)
+//ARG = *(FRAME-3)
+//LCL = *(FRAME-4)
+//goto RET
+	//save all the things on stack
+	//push return-address
+	//push LCL  ram[1]
+	//push ARG  ram[2]
+	//push THIS ram[3]
+	//push THAT ram[4]
+	//ARG = SP-n-5
+	//LCL = SP
+
+	frame = this->ram[1];//LCL
+	ret = this->ram[frame - 5];
+	this->ram[this->ram[2]] = this->ram[this->ram[0]-1]; // *ARG = pop
+//?	this->ram[0] = this->ram[this->ram[2]+1]; //SP = ARG+1
+	this->ram[0] = this->ram[2]+1; //SP = ARG+1
+	this->ram[4] = this->ram[frame - 1]; //THAT
+	this->ram[3] = this->ram[frame - 2]; //THAT
+	this->ram[2] = this->ram[frame - 3]; //ARG
+	this->ram[1] = this->ram[frame - 4]; //LCL
+
+	//goto f
+	this->pc=ret;
+}
+
+void vm_execute_add(Vm *this) 
+{
+	int a = this->ram[this->ram[0]-2];
+	int b = this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-2]= (short)(a+b); //a=a+b
+	this->ram[0]--; //SP--
+	this->pc++;
+}
+
+void vm_execute_sub(Vm *this) 
+{
+	int a = this->ram[this->ram[0]-2];
+	int b = this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-2]= (short)(a-b); //a=a+b
+	this->ram[0]--; //SP--
+	this->pc++;
+}
+
+void vm_execute_and(Vm *this) 
+{
+	int a = this->ram[this->ram[0]-2];
+	int b = this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-2]= (short)(a&b); //a=a&b
+	this->ram[0]--; //SP--
+	this->pc++;
+}
+
+void vm_execute_or(Vm *this) 
+{
+	int a = this->ram[this->ram[0]-2];
+	int b = this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-2]= (short)(a|b); //a=a|b
+	this->ram[0]--; //SP--
+	this->pc++;
+}
+
+void vm_execute_eq(Vm *this) 
+{
+	int a = this->ram[this->ram[0]-2];
+	int b = this->ram[this->ram[0]-1];
+	if(a==b){//true -> -1
+		this->ram[this->ram[0]-2]= -1;
+	}else{// false -> 0
+		this->ram[this->ram[0]-2]= 0;
+	}
+	this->ram[0]--; //SP--
+	this->pc++;
+}
+
+void vm_execute_lt(Vm *this) 
+{
+	int a = this->ram[this->ram[0]-2];
+	int b = this->ram[this->ram[0]-1];
+	if(a<b){//true --> -1
+		this->ram[this->ram[0]-2]= -1;
+	}else{
+		this->ram[this->ram[0]-2]= 0;
+	}
+	this->ram[0]--; //SP--
+	this->pc++;
+}
+
+void vm_execute_gt(Vm *this) 
+{
+	int a = this->ram[this->ram[0]-2];
+	int b = this->ram[this->ram[0]-1];
+	if(a>b){//true --> -1
+		this->ram[this->ram[0]-2]= -1;
+	}else{
+		this->ram[this->ram[0]-2]= 0;
+	}
+	this->ram[0]--; //SP--
+	this->pc++;
+}
+
+void vm_execute_not(Vm *this)
+{
+	int a = this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-1]= (short)(~a); //a=~a
+	this->pc++;
+}
+
+void vm_execute_neg(Vm *this)
+{
+	int a = this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-1]= (short)(-a); //a=-a
+	this->pc++;
+}
+
+void vm_execute_goto(Vm *this) 
+{
+	int line;
+	line = this->targetline[this->pc];
+	this->pc=line;
+}
+
+void vm_execute_ifgoto(Vm *this) 
+{
+	int line;
+	if(this->ram[this->ram[0] -1] == -1){
+		line = this->targetline[this->pc];
+		this->pc=line;
+	} else {
+		this->pc++;
+	}
+	this->ram[0]--; //SP--
+}
+
+/*
+//Segment encoding
+0 argument
+1 local
+2 static  //only this one is special, the rest will live on the normal stack
+3 constant
+4 this
+5 that
+6 pointer
+7 temp
+Register
+RAM[0]  SP
+RAM[1]  LCL
+RAM[2]  ARG
+RAM[3]  THIS
+RAM[4]  THAT
+RAM[5–12] TEMP
+RAM[13–15] general purpose (only 3 words)
+*/
+void vm_execute_push(Vm *this)
+{
+	short i; //pushvalue
+	//Get the push value
+	switch (this->vmarg1[this->pc])
+	{
+	case 0: //ARG RAM[2]
+		i = this->ram[this->ram[2]+this->vmarg2[this->pc]];
+		break;
+	case 1: //LCL RAM[1]
+		i = this->ram[this->ram[1]+this->vmarg2[this->pc]];
+		break;
+	case 2: //static (special)
+		i = this->statics[this->filenum[this->pc]][this->vmarg2[this->pc]];
+		break;
+	case 3: //constant 
+		i = this->vmarg2[this->pc]; 
+		break;
+	case 4: //THIS RAM[3]
+		i = this->ram[this->ram[3]+this->vmarg2[this->pc]];
+		break;
+	case 5: //THAT RAM[4]
+		i = this->ram[this->ram[4]+this->vmarg2[this->pc]];
+		break;
+	case 6: //pointer [0] or [1]
+		i = this->ram[3+this->vmarg2[this->pc]];
+		break;
+	case 7: //TEMP
+		i = this->ram[5+this->vmarg2[this->pc]];
+		break;
+	default:
+		printf("vm_execute_push(): unhandled case\n");
+	}
+
+	//Push the value onto stack
+	this->ram[this->ram[0]]= i;
+
+	//Increase SP
+	this->ram[0]++;
+
+	//Increase PC
+	this->pc++;
+}
+
+void vm_execute_pop(Vm *this)
+{
+	short i; //popvalue
+	//Get the pop value
+	i = this->ram[this->ram[0] - 1];
+	this->ram[0]--; //SP--
+
+	//put the value where it should go
+	switch (this->vmarg1[this->pc])
+	{
+	case 0: //ARG RAM[2]
+		this->ram[this->ram[2]+this->vmarg2[this->pc]] = i;
+		break;
+	case 1: //LCL RAM[1]
+		this->ram[this->ram[1]+this->vmarg2[this->pc]] = i;
+		break;
+	case 2: //static (special)
+		this->statics[this->filenum[this->pc]][this->vmarg2[this->pc]] = i;
+		break;
+	case 3: //constant makes no sense
+		printf("vm_execute_pop(): popping to constant makes no sense!\n");
+		break;
+	case 4: //THIS RAM[3]
+		this->ram[this->ram[3]+this->vmarg2[this->pc]] = i;
+		break;
+	case 5: //THAT RAM[4]
+		this->ram[this->ram[4]+this->vmarg2[this->pc]] = i;
+		break;
+	case 6: //pointer [0] or [1]
+		this->ram[3+this->vmarg2[this->pc]] = i;
+		break;
+	case 7: //TEMP
+		this->ram[5+this->vmarg2[this->pc]] = i;
+		break;
+	default:
+		printf("vm_execute_pop(): unhandled case\n");
+	}
+
+	//Increase PC
+	this->pc++;
+}
+
+void vm_execute(Vm *this)
+{
+	//check line and process it.
+	if(DEBUG) printf("   line: %d %s | ", this->pc, this->label[this->pc]);
+	switch(this->vmarg0[this->pc])
+	{
+	case 0:
+		vm_execute_push(this); //3 args; push segment index
+		if(DEBUG) printf(" push SP: %d\n", this->ram[0]);
+		break;
+	case 1:
+		vm_execute_pop(this); //3 args; pop segment index
+		if(DEBUG) printf(" pop SP: %d\n", this->ram[0]);
+		break;
+	case 2:
+		vm_execute_call(this); //3 args; call bla nargs
+		if(DEBUG) printf(" call SP: %d\n", this->ram[0]);
+		break;
+	case 3:
+		vm_execute_function(this); //3 args; function label nlocals
+		if(DEBUG) printf(" fn SP: %d\n", this->ram[0]);
+		break;
+	case 4:
+		vm_execute_goto(this); //2 args; goto label
+		if(DEBUG) printf(" goto SP: %d\n", this->ram[0]);
+		break;
+	case 5:
+		vm_execute_ifgoto(this); //2 args; if-goto label
+		if(DEBUG) printf(" ifgoto SP: %d\n", this->ram[0]);
+		break;
+	case 6:
+		vm_execute_label(this); //2 args; label label //This is a do nothing statement
+		if(DEBUG) printf(" label SP: %d\n", this->ram[0]);
+		break;
+	case 7:
+		vm_execute_add(this);
+		if(DEBUG) printf(" add SP: %d\n", this->ram[0]);
+		break;
+	case 8:
+		vm_execute_and(this);
+		if(DEBUG) printf(" and SP: %d\n", this->ram[0]);
+		break;
+	case 9:
+		vm_execute_eq(this);
+		if(DEBUG) printf(" eq SP: %d\n", this->ram[0]);
+		break;
+	case 10:
+		vm_execute_gt(this);
+		if(DEBUG) printf(" gt SP: %d\n", this->ram[0]);
+		break;
+	case 11:
+		vm_execute_lt(this);
+		if(DEBUG) printf(" lt SP: %d\n", this->ram[0]);
+		break;
+	case 12:
+		vm_execute_neg(this);
+		if(DEBUG) printf(" neg SP: %d\n", this->ram[0]);
+		break;
+	case 13:
+		vm_execute_not(this);
+		if(DEBUG) printf(" not SP: %d\n", this->ram[0]);
+		break;
+	case 14:
+		vm_execute_or(this);
+		if(DEBUG) printf(" or SP: %d\n", this->ram[0]);
+		break;
+	case 15:
+		vm_execute_return(this);
+		if(DEBUG) printf("  ret SP: %d\n", this->ram[0]);
+		break;
+	case 16:
+		vm_execute_sub(this);
+		if(DEBUG) printf("  sub SP: %d\n", this->ram[0]);
+		break;
+	default:
+		printf("vm_execute(): Panic! Unhandled VM instruction!\n");
+		exit(1);
+	}
+	this->instructioncounter++;
+}
+
+void vm_print_vmcode(Vm *this)
 {
     for (int i = 0; i < this->program_size; i++)
     {
@@ -168,7 +540,7 @@ void vm_print_vmcode(const Vm *this)
     }
 }
 
-void vm_print_ram(const Vm *this)
+void vm_print_ram(Vm *this)
 {
     for (int i = 0; i < MEM_SIZE; i++)
     {

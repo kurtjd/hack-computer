@@ -533,7 +533,6 @@ void get_filename(const char *filepath, char *filename)
     }
 }
 
-//WIP: Note: after last vm file has been read, resolve all the labels to 'line numbers' or make a translation table
 bool read_vm_files(Vm *this)
 {
     //add_bootstrap(prog);
@@ -541,6 +540,16 @@ bool read_vm_files(Vm *this)
     this->vmarg1[this->pc] = -1; //not used
     this->vmarg2[this->pc] = 0; //nargs
     strncpy(this->label[this->pc], "Sys.init", VM_MAXLABEL);
+    if(DEBUG) printf("initial line/ bootstrap: call:pc=%d, %hi %hi %hi ..%s\n", this->pc, this->vmarg0[this->pc],
+    	 this->vmarg1[this->pc], this->vmarg2[this->pc], this->label[this->pc]);
+    this->filenum[this->pc] = 0; //important to know which static segment to target IRRELEVANT HERE
+    this->pc++;
+
+    //add Sys.halt, just in case
+    this->vmarg0[this->pc] = 2; //code for call
+    this->vmarg1[this->pc] = -1; //not used
+    this->vmarg2[this->pc] = 0; //nargs
+    strncpy(this->label[this->pc], "Sys.halt", VM_MAXLABEL);
     if(DEBUG) printf("initial line/ bootstrap: call:pc=%d, %hi %hi %hi ..%s\n", this->pc, this->vmarg0[this->pc],
     	 this->vmarg1[this->pc], this->vmarg2[this->pc], this->label[this->pc]);
     this->filenum[this->pc] = 0; //important to know which static segment to target IRRELEVANT HERE
@@ -589,11 +598,8 @@ bool read_vm_files(Vm *this)
         fclose(fp);
     }
 
-    // Add infinite loop
-    //asm_add_line(prog, "(END_PROGRAM)");
-    //asm_add_line(prog, "@END_PROGRAM");
-    //asm_add_line(prog, "0;JMP");
-
+    //reset the program counter
+    this->pc = 0;
     return true;
 }
 
@@ -646,12 +652,14 @@ int main(int argc, char **argv)
     vm_init_labeltargets(&machine);
     if(DEBUG) vm_print_vmcode(&machine);
 
+    machine.pc = 0; //set pc to 0 to start at the beginning
+
     SDL_Event e;
     bool quit = false;
     while (!quit && machine.pc < machine.program_size)
     {
         // Cap execution speed
-        //if (SDL_GetTicks() % (1000 / CPU_FREQ) <= 1)
+        if (SDL_GetTicks() % (1000 / CPU_FREQ) <= 1)
         {
 	    // WIP: Everything is set up. Now run the VM instructions. Implement them
             vm_execute(&machine);

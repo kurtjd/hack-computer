@@ -1,4 +1,5 @@
-CFLAGS = -g3 -save-temps
+#CFLAGS = -g3 -save-temps
+CFLAGS = -O3
 
 all: vmemu
 

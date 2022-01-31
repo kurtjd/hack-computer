@@ -176,6 +176,26 @@ void vm_execute_function(Vm *this)
 void vm_execute_call(Vm *this)
 {
 	int line;
+
+	//handle it here if it is an simple OS function:
+	if(strcmp(this->label[this->pc], "Math.multiply") == 0){
+		printf("vm_execute_call(): Handling Math.multiply\n");
+		short a = (short) this->ram[this->ram[0]-2];
+		short b = (short) this->ram[this->ram[0]-1];
+		this->ram[this->ram[0]-2]= (int)(a*b); //a=a*b
+		this->ram[0]--; //SP--
+		this->pc++;
+		return;
+	}else if(strcmp(this->label[this->pc], "Math.divide") == 0){
+		printf("vm_execute_call(): Handling Math.divide\n");
+		short a = (short) this->ram[this->ram[0]-2];
+		short b = (short) this->ram[this->ram[0]-1];
+		this->ram[this->ram[0]-2]= (int)(a/b); //a=a/b
+		this->ram[0]--; //SP--
+		this->pc++;
+		return;
+	}
+
 	//save all the things on stack
 	//push return-address
 	//push LCL  ram[1]
@@ -240,44 +260,44 @@ void vm_execute_return(Vm *this)
 
 void vm_execute_add(Vm *this) 
 {
-	int a = this->ram[this->ram[0]-2];
-	int b = this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-2]= (short)(a+b); //a=a+b
+	short a = (short) this->ram[this->ram[0]-2];
+	short b = (short) this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-2]= (int)(a+b); //a=a+b
 	this->ram[0]--; //SP--
 	this->pc++;
 }
 
 void vm_execute_sub(Vm *this) 
 {
-	int a = this->ram[this->ram[0]-2];
-	int b = this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-2]= (short)(a-b); //a=a+b
+	short a = (short) this->ram[this->ram[0]-2];
+	short b = (short) this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-2]= (int)(a-b); //a=a+b
 	this->ram[0]--; //SP--
 	this->pc++;
 }
 
 void vm_execute_and(Vm *this) 
 {
-	int a = this->ram[this->ram[0]-2];
-	int b = this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-2]= (short)(a&b); //a=a&b
+	short a = (short) this->ram[this->ram[0]-2];
+	short b = (short) this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-2]= (int)(a&b); //a=a&b
 	this->ram[0]--; //SP--
 	this->pc++;
 }
 
 void vm_execute_or(Vm *this) 
 {
-	int a = this->ram[this->ram[0]-2];
-	int b = this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-2]= (short)(a|b); //a=a|b
+	short a = (short) this->ram[this->ram[0]-2];
+	short b = (short) this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-2]= (int)(a|b); //a=a|b
 	this->ram[0]--; //SP--
 	this->pc++;
 }
 
 void vm_execute_eq(Vm *this) 
 {
-	int a = this->ram[this->ram[0]-2];
-	int b = this->ram[this->ram[0]-1];
+	short a = (short) this->ram[this->ram[0]-2];
+	short b = (short) this->ram[this->ram[0]-1];
 	if(a==b){//true -> -1
 		this->ram[this->ram[0]-2]= -1;
 	}else{// false -> 0
@@ -289,8 +309,8 @@ void vm_execute_eq(Vm *this)
 
 void vm_execute_lt(Vm *this) 
 {
-	int a = this->ram[this->ram[0]-2];
-	int b = this->ram[this->ram[0]-1];
+	short a = (short) this->ram[this->ram[0]-2];
+	short b = (short) this->ram[this->ram[0]-1];
 	if(a<b){//true --> -1
 		this->ram[this->ram[0]-2]= -1;
 	}else{
@@ -302,8 +322,8 @@ void vm_execute_lt(Vm *this)
 
 void vm_execute_gt(Vm *this) 
 {
-	int a = this->ram[this->ram[0]-2];
-	int b = this->ram[this->ram[0]-1];
+	short a = (short) this->ram[this->ram[0]-2];
+	short b = (short) this->ram[this->ram[0]-1];
 	if(a>b){//true --> -1
 		this->ram[this->ram[0]-2]= -1;
 	}else{
@@ -315,15 +335,15 @@ void vm_execute_gt(Vm *this)
 
 void vm_execute_not(Vm *this)
 {
-	int a = this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-1]= (short)(~a); //a=~a
+	short a = (short) this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-1]= (int)(~a); //a=~a
 	this->pc++;
 }
 
 void vm_execute_neg(Vm *this)
 {
-	int a = this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-1]= (short)(-a); //a=-a
+	short a = (short) this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-1]= (int)(-a); //a=-a
 	this->pc++;
 }
 

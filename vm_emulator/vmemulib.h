@@ -2,7 +2,7 @@
 //VM Emulator based in parts on hackemu and other work in C by Kurtis Dinelle
 //Context: nand2tetris
 
-#define DEBUG 0
+#define DEBUG 1
 #define OVERRIDE_OS_FUNCTIONS 1
 
 #ifndef EMULIB_H
@@ -111,6 +111,11 @@ typedef struct Vm
     //uint16_t sp; //not needed, we put everything else in ram and use ram[0] for SP
     int instructioncounter; //used for debugging
     int quitflag; //set this and the machine will be destroyed by the main loop
+    int haltcount; //Need to return a few times from Sys.halt (internal) to update the screen before we quit
+
+    //Screen.vm persistence (when handled by built-in functions in osfunctions.c)
+    short currentcolor;
+
 } Vm;
 
 // Gets an x and y coordinate from a screen address
@@ -151,4 +156,7 @@ void vm_print_ram(Vm *this);
 // Prints statics RAM registers with values != 0
 void vm_print_statics(Vm *this);
 
+// Checks if the function can be handled by built-in code.
+// Returns 1 if it got handled, 0 if not
+int check_os_function(Vm *this);
 #endif

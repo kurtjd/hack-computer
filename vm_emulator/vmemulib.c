@@ -51,6 +51,9 @@ void vm_init(Vm *this)
     this->program_size = 0;
     this->pc = 0;
     this->nfiles = 0;
+    this->haltcount = 0;
+
+    this->currentcolor = -1;//true --> -1, black
 
     for(i=0;i<VM_SIZE;i++){
     	this->label[i]=calloc(VM_MAXLABEL, sizeof(char));
@@ -177,78 +180,8 @@ void vm_execute_call(Vm *this)
 
 	//handle simple OS functions directly
 	if(OVERRIDE_OS_FUNCTIONS){
-		// Math.vm
-		if(strcmp(this->label[this->pc], "Math.init") == 0){
-			if(DEBUG) printf("vm_execute_call(): Handling Math.init\n");
-			this->pc++; //just do nothing, we simply don't need to set anything up. All OS Math functions handled internally.
+		if(check_os_function(this)){
 			return;
-		} else if(strcmp(this->label[this->pc], "Math.multiply") == 0){
-			if(DEBUG) printf("vm_execute_call(): Handling Math.multiply\n");
-			short a = (short) this->ram[this->ram[0]-2];
-			short b = (short) this->ram[this->ram[0]-1];
-			this->ram[this->ram[0]-2]= (int)(a*b); //a=a*b
-			this->ram[0]--; //SP--
-			this->pc++;
-			return;
-		}else if(strcmp(this->label[this->pc], "Math.divide") == 0){
-			if(DEBUG) printf("vm_execute_call(): Handling Math.divide\n");
-			short a = (short) this->ram[this->ram[0]-2];
-			short b = (short) this->ram[this->ram[0]-1];
-			this->ram[this->ram[0]-2]= (int)(a/b); //a=a/b
-			this->ram[0]--; //SP--
-			this->pc++;
-			return;
-		}else if(strcmp(this->label[this->pc], "Math.sqrt") == 0){
-			if(DEBUG) printf("vm_execute_call(): Handling Math.sqrt\n");
-			short a = (short) this->ram[this->ram[0]-1];
-			if(a<0){
-				printf("internal Math.sqrt() --> negative input error\n");
-				exit(1);
-			}
-			this->ram[this->ram[0]-1]= (int)((short)(sqrt(a))); //a=a/b
-			this->pc++;
-			return;
-		}else if(strcmp(this->label[this->pc], "Math.min") == 0){
-			if(DEBUG) printf("vm_execute_call(): Handling Math.min\n");
-			short a = (short) this->ram[this->ram[0]-2];
-			short b = (short) this->ram[this->ram[0]-1];
-			if(a<b){
-				this->ram[this->ram[0]-2]= (int) a; //a=a/b
-			}else{
-				this->ram[this->ram[0]-2]= (int) b;
-			}
-			this->ram[0]--; //SP--
-			this->pc++;
-			return;
-                }else if(strcmp(this->label[this->pc], "Math.max") == 0){
-			if(DEBUG) printf("vm_execute_call(): Handling Math.max\n");
-			short a = (short) this->ram[this->ram[0]-2];
-			short b = (short) this->ram[this->ram[0]-1];
-			if(a<b){
-				this->ram[this->ram[0]-2]= (int) b;
-			}else{
-				this->ram[this->ram[0]-2]= (int) a;
-			}
-			this->ram[0]--; //SP--
-			this->pc++;
-			return;
-		}else if(strcmp(this->label[this->pc], "Math.abs") == 0){
-			if(DEBUG) printf("vm_execute_call(): Handling Math.abs\n");
-			short a = (short) this->ram[this->ram[0]-1];
-			if(a<0){
-				this->ram[this->ram[0]-1]= (int)(-a); //a=-a
-			}
-			this->pc++;
-			return;
-		}else
-
-		// Now Sys.vm
-		if(strcmp(this->label[this->pc], "Sys.halt") == 0){
-                        if(DEBUG) printf("vm_execute_call(): Handling Sys.halt\n");
-                        sleep(2); //seconds
-                        this->quitflag = 1;
-                        //this->pc++;
-                        return;
 		}
 	}
 

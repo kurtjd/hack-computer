@@ -148,4 +148,7 @@ void vm_print_vmcode(Vm *this);
 // Prints RAM registers with values != 0
 void vm_print_ram(Vm *this);
 
+// Prints statics RAM registers with values != 0
+void vm_print_statics(Vm *this);
+
 #endif

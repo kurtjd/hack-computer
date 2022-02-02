@@ -14,7 +14,7 @@
 #include "vmemulib.h"
 
 #define TITLE "VM Emulator"
-#define FRAME_RATE 60
+#define FRAME_RATE 200
 #define CPU_FREQ 1000
 #define OFF_COLOR 0xFFFFFF
 #define ON_COLOR 0x000000
@@ -670,7 +670,8 @@ int main(int argc, char **argv)
             draw_display(&machine, window, surface);
         }
     }
-
+    if(DEBUG) vm_print_statics(&machine);
+    if(DEBUG) vm_print_ram(&machine);
     vm_destroy(&machine);
     clean_exit(window, surface, 0);
 }

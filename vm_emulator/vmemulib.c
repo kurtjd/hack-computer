@@ -47,7 +47,7 @@ void vm_init(Vm *this)
     this->targetline = calloc(VM_SIZE, sizeof(int32_t));
     this->ram = calloc(MEM_SIZE, sizeof(int32_t));
     this->label = calloc(VM_SIZE, sizeof(char*));
-    this->statics = calloc(MAX_FILES, sizeof(uint16_t*));
+    this->statics = calloc(MAX_FILES, sizeof(int16_t*));
     this->program_size = 0;
     this->pc = 0;
     this->nfiles = 0;
@@ -69,7 +69,7 @@ void vm_init_statics(Vm *this, int nfiles)
     //intialize VMSTATICVARS variables for each file (NUM_FILES)
     this->nfiles = nfiles;
     for(int i=0;i<nfiles;i++){
-    	this->statics[i]=calloc(VMSTATICVARS, sizeof(uint16_t));
+    	this->statics[i]=calloc(VMSTATICVARS, sizeof(int16_t));
     }
 }
 
@@ -245,7 +245,7 @@ void vm_execute_call(Vm *this)
 		// Now Sys.vm
 		if(strcmp(this->label[this->pc], "Sys.halt") == 0){
                         if(DEBUG) printf("vm_execute_call(): Handling Sys.halt\n");
-                        sleep(1); //seconds
+                        sleep(2); //seconds
                         this->quitflag = 1;
                         //this->pc++;
                         return;
@@ -383,12 +383,14 @@ void vm_execute_goto(Vm *this)
 
 void vm_execute_ifgoto(Vm *this) 
 {
+	//Important: if(x) is true in Hack if(~(x=0)), i.e. any value other than 0
+	//http://nand2tetris-questions-and-answers-forum.52.s1.nabble.com/What-is-true-And-what-is-false-td4025881.htmlhttp://nand2tetris-questions-and-answers-forum.52.s1.nabble.com/What-is-true-And-what-is-false-td4025881.html
 	int line;
-	if((short) (this->ram[this->ram[0] -1]) == (short)(-1)){
+	if((short) (this->ram[this->ram[0] -1]) == 0){ //false
+		this->pc++;
+	} else { //true
 		line = this->targetline[this->pc];
 		this->pc=line;
-	} else {
-		this->pc++;
 	}
 	this->ram[0]--; //SP--
 }
@@ -425,7 +427,7 @@ void vm_execute_push(Vm *this)
 		i = (short) this->ram[this->ram[1]+this->vmarg2[this->pc]];
 		break;
 	case 2: //static (special)
-		i = (short) this->statics[this->filenum[this->pc]][this->vmarg2[this->pc]];
+		i = this->statics[this->filenum[this->pc]][this->vmarg2[this->pc]]; //is of type int16_t
 		break;
 	case 3: //constant 
 		i = (short) this->vmarg2[this->pc]; 
@@ -474,7 +476,7 @@ void vm_execute_pop(Vm *this)
 		this->ram[this->ram[1]+this->vmarg2[this->pc]] = (int) i;
 		break;
 	case 2: //static (special)
-		this->statics[this->filenum[this->pc]][this->vmarg2[this->pc]] = (int) i;
+		this->statics[this->filenum[this->pc]][this->vmarg2[this->pc]] = i; //statics is int16_t, i.e. short
 		break;
 	case 3: //constant makes no sense
 		printf("vm_execute_pop(): popping to constant makes no sense!\n");
@@ -591,13 +593,21 @@ void vm_print_vmcode(Vm *this)
 
 void vm_print_ram(Vm *this)
 {
-    for (int i = 0; i < MEM_SIZE; i++)
-    {
-        int16_t mem = this->ram[i];
+	int16_t mem;
+	printf("vm_print_ram():\n");
+	for (int i = 0; i < MEM_SIZE; i++){
+		mem = (short) this->ram[i];
+		if (mem!=0) printf("ram[%d]: %d\n", i, mem);
+	}
+}
 
-        if (mem)
-        {
-            printf("%d: %d\n", i, mem);
-        }
-    }
+void vm_print_statics(Vm *this){
+	int i,j, mem;
+	printf("vm_print_statics(): Statics variables are:\n");
+	for (i = 0; i < this->nfiles; i++){
+		for (j = 0; j < VMSTATICVARS; j++){
+			mem = this->statics[i][j];
+			if (mem!=0) printf("[%d][%d]: %d\n", i,j, mem);
+		}
+	}
 }

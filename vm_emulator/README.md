@@ -16,12 +16,15 @@ Update: Math.vm is not needed anymore.
 </pre>
 
 Known problems:
-There must be a subtle difference to the Java VM Emulator still. Mark Armbrust's Float.jack stuff does not
-finish the self-test. Please take a look and find the bug!
+~~There must be a subtle difference to the Java VM Emulator still. Mark Armbrust's Float.jack stuff does not
+finish the self-test. Please take a look and find the bug!~~
 <pre>
 	http://nand2tetris-questions-and-answers-forum.52.s1.nabble.com/file/n4025143/Float_1_5.zip
 	http://nand2tetris-questions-and-answers-forum.52.s1.nabble.com/Floating-point-arithmetic-td4025143.html
 </pre>
+This has been fixed. The problem was the if(x) check in the `if-goto` execution.
+It should operate as if(~(x=0)) in Jack language.
+
 ## Requirements
 * C compiler
 * SDL2

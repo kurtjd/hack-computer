@@ -2,7 +2,7 @@
 //VM Emulator based in parts on hackemu and other work in C by Kurtis Dinelle
 //Context: nand2tetris
 
-#define DEBUG 1
+#define DEBUG 0
 #define OVERRIDE_OS_FUNCTIONS 1
 
 #ifndef EMULIB_H
@@ -115,6 +115,9 @@ typedef struct Vm
 
     //Screen.vm persistence (when handled by built-in functions in osfunctions.c)
     short currentcolor;
+
+    //Memory.vm persistence
+    int32_t *freelist;
 
 } Vm;
 

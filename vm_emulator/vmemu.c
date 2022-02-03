@@ -14,8 +14,8 @@
 #include "vmemulib.h"
 
 #define TITLE "VM Emulator"
-#define FRAME_RATE 200
-#define CPU_FREQ 1000
+#define FRAME_RATE 25
+#define CPU_FREQ 100
 #define OFF_COLOR 0xFFFFFF
 #define ON_COLOR 0x000000
 

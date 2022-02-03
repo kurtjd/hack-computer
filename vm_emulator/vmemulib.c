@@ -52,7 +52,8 @@ void vm_init(Vm *this)
     this->pc = 0;
     this->nfiles = 0;
     this->haltcount = 0;
-
+    this->freelist = this->ram+2048;
+    
     this->currentcolor = -1;//true --> -1, black
 
     for(i=0;i<VM_SIZE;i++){
@@ -61,7 +62,10 @@ void vm_init(Vm *this)
 
     vm_clear_vmcode(this);
     vm_clear_ram(this);
-    this->ram[0] = 256; //set SP
+    //this->ram[0] = 256; //set SP
+    //this->ram[this->freelist[0]]=0;
+    //this->ram[this->freelist[1]]=14335-2;
+    
     this->ram[KEYBD_ADDR] = 0;
     this->instructioncounter = 0;
     this->quitflag = 0;
@@ -186,7 +190,7 @@ void vm_execute_call(Vm *this)
 	}
 
 	//save 'environment' on stack
-	this->ram[this->ram[0]] = this->pc+1;//push return address to stack
+	this->ram[this->ram[0]] = this->pc+1;//push return address to stack (this can now be >16bits in VM Emulator)
 	this->ram[0]++;
 	this->ram[this->ram[0]] = this->ram[1];//push LCL
 	this->ram[0]++;

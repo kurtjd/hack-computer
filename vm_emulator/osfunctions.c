@@ -8,6 +8,133 @@
 #include <string.h>
 #include "vmemulib.h"
 
+// Memory.vm
+void
+memory_init(Vm *this){
+	if(DEBUG) printf("vm_execute_call(): Handling Memory.init\n");
+	this->pc++; //just do nothing, we simply don't need to set anything up. All OS Math functions handled internally.
+}
+
+void
+memory_poke(Vm *this){
+	int address, value;
+	if(DEBUG) printf("vm_execute_call(): Handling Memory.poke\n");
+	address = this->ram[this->ram[0]-2];
+	value = this->ram[this->ram[0]-1];
+	//printf("poke ram[%d] = %d\n", address, value);
+	this->ram[address] = value;
+	this->ram[this->ram[0]-2]= 0; //push 0 (void return value still needs to return a 0
+	this->ram[0]--;
+	this->pc++;
+}
+
+void
+memory_peek(Vm *this){
+	if(DEBUG) printf("vm_execute_call(): Handling Memory.peek\n");
+	int address = this->ram[this->ram[0]-1];
+	this->ram[this->ram[0]-1]= this->ram[address];
+	this->pc++;
+}
+
+
+void
+memory_alloc(Vm *this){
+	if(DEBUG) printf("vm_execute_call(): Handling Memory.alloc\n");
+	int size = this->ram[this->ram[0]-1];
+
+    	int32_t *ptr; //points at a free block, push it along through the free list if the free block is too small
+	int32_t *ptr2;
+	int fit;
+    	int32_t *block;
+	
+    	//This implements greedy, first fit
+	ptr = this->freelist;
+    	while(ptr[1]<(size+2)){//still not big enough, keep looking
+		if(ptr[0]==0){//NULL, end of the list
+			//error, ran out of options
+			//do Sys.error(7777);
+			//do Sys.halt();
+			printf("memory_alloc (built-in): cannot find enough memory.\n");
+			exit(1);
+		}
+    		ptr = this->ram+ptr[0];//advance along the list
+    	}
+    	//end first fit concept
+
+    	//==============================
+	//following implements 'best fit' add on. D.Knuth thinks this is worse when the defrag is done below during deAlloc()
+	fit = ptr[1]; //remember the size
+	ptr2 = ptr; //save the present pointer as viable option
+	while(ptr[0]>0){ //try to find a better less wasteful fit
+		ptr = this->ram+ptr[0];//advance
+		if((ptr[1]>(size+1))&(ptr[1]<fit)){//better fit (must be at least size+2 --> '>(size+1)'
+			ptr2 = ptr;
+			fit = ptr[1];
+		}
+	}
+	//set ptr back to best fit and carry on as before below
+	ptr = ptr2;
+	//end best fit addon
+	//===============================
+
+    	//Now prepare a block and update freelist
+
+    	//ptr is now po,inting to the large enough block
+    	//take the required space at the end, then we only need to update size, not the previous pointer.
+    	ptr[1]=ptr[1]-(size+2); //adjust the free list entry
+    	block = ptr+ptr[1]+4; 
+    	    	//Advance segment pointer by 2 to data segment. Then +ptr[1] (remaining bytes) then +2 to point to allocated data
+    					//first to in the allocated data are [-1] size and [-2]=0 where the freelinked list pointer goes.
+    	//Now set block[-1] and block[-2]
+    	block[-2]=0; //this will contain a pointer to next free list entry (could be done without wasting this byte, but this is easier
+    	block[-1]=size;
+
+	this->ram[this->ram[0]-1]= (int) (block-this->ram); //push return value
+	this->pc++;
+	return;
+}
+
+void
+memory_dealloc(Vm *this){
+	int o;
+	int32_t  *seg, *prev_seg, *next_seg;
+	if(DEBUG) printf("vm_execute_call(): Handling Memory.deAlloc\n");
+	o = this->ram[this->ram[0]-1];
+	//let data[5]=o;
+    	if(o==0){
+    		//do Sys.error(8888);//NULL pointer dereference
+    		//do Sys.halt();
+		printf("memory_dealloc() (built-in): trying to free NULL pointer.\n");
+    		exit(1);
+    	}
+	seg = this->ram+o-2; //use segment pointer from here (o-2 is the address of this segment)
+
+	//find place to insert
+	prev_seg = this->freelist;
+	next_seg = this->ram+this->freelist[0];
+	while(((next_seg-this->ram)>0)&(next_seg<seg)){//keep sorted by pointer addresses
+		prev_seg = next_seg;
+		next_seg = this->ram+prev_seg[0];
+	}
+	//insert
+	prev_seg[0] = (int) (seg-this->ram);
+	seg[0] = (int) (next_seg-this->ram);
+
+	//Now check if we can defrag [prev_seg---seg---next_seg] segments:
+	if ((seg + seg[1] + 2) == next_seg){//combine with next
+ 		seg[1] = seg[1] + next_seg[1] + 2;
+		seg[0] = next_seg[0];
+	}
+	if ((prev_seg + prev_seg[1] + 2) == seg){ //combine with previous
+		prev_seg[1] = prev_seg[1] + seg[1] + 2;
+		prev_seg[0] = seg[0];
+	}
+
+	this->ram[this->ram[0]-1]= 0; //push 0 void return value
+	this->pc++;
+	return;
+}
+
 // Screen.vm
 // white is false (0)
 // black is true (-1)
@@ -477,6 +604,27 @@ check_os_function(Vm *this){
 	}
 	else if(strcmp(this->label[this->pc], "Screen.drawCircle") == 0){
 		screen_drawCircle(this);
+		handled++;
+	}
+	// Memory.vm
+	else if(strcmp(this->label[this->pc], "Memory.init") == 0){
+		memory_init(this);
+		handled++;
+	}
+	else if(strcmp(this->label[this->pc], "Memory.alloc") == 0){
+		memory_alloc(this);
+		handled++;
+	}
+	else if(strcmp(this->label[this->pc], "Memory.deAlloc") == 0){
+		memory_dealloc(this);
+		handled++;
+	}
+	else if(strcmp(this->label[this->pc], "Memory.peek") == 0){
+		memory_peek(this);
+		handled++;
+	}
+	else if(strcmp(this->label[this->pc], "Memory.poke") == 0){
+		memory_poke(this);
 		handled++;
 	}
 

@@ -63,8 +63,8 @@ void vm_init(Vm *this)
     vm_clear_vmcode(this);
     vm_clear_ram(this);
     //this->ram[0] = 256; //set SP
-    //this->ram[this->freelist[0]]=0;
-    //this->ram[this->freelist[1]]=14335-2;
+    this->freelist[0]=0;
+    this->freelist[1]=14335-2;
     
     this->ram[KEYBD_ADDR] = 0;
     this->instructioncounter = 0;

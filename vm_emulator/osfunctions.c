@@ -8,6 +8,9 @@
 #include <string.h>
 #include "vmemulib.h"
 
+// Array.vm
+// can simply be mapped to Memory.alloc and Memory.deAlloc I just realized. Who would have thought!
+
 // Memory.vm
 void
 memory_init(Vm *this){
@@ -537,8 +540,16 @@ int
 check_os_function(Vm *this){
 	int handled = 0;
 
+	// Array.vm (note that this is mapped to Memory.alloc and Memory.deAlloc)
+	if(strcmp(this->label[this->pc], "Array.new") == 0){
+		memory_alloc(this);
+		handled++;
+	} else if(strcmp(this->label[this->pc], "Array.dispose") == 0){
+		memory_dealloc(this);
+		handled++;
+	}
 	// Math.vm
-	if(strcmp(this->label[this->pc], "Math.init") == 0){
+	else if(strcmp(this->label[this->pc], "Math.init") == 0){
 		math_init(this);
 		handled++;
 	} else if(strcmp(this->label[this->pc], "Math.multiply") == 0){

@@ -16,8 +16,8 @@
 #define VM_SIZE 262144 //This should dynamically adjust to the number of VM instruction lines. For now MEM_SIZE*8
 		//do some allocs and proper pointers in the struct otherwise stack problem
 #define WORD_SIZE 16
-#define SCREEN_ADDR 0x4000
-#define KEYBD_ADDR 0x6000
+#define SCREEN_ADDR 0x4000  //16384
+#define KEYBD_ADDR 0x6000  //24576
 #define DISPLAY_WIDTH 512
 #define DISPLAY_HEIGHT 256
 #define VM_MAXLABEL 128 //maximum number of characters in a label

@@ -35,7 +35,7 @@ void
 memory_peek(Vm *this){
 	if(DEBUG) printf("vm_execute_call(): Handling Memory.peek\n");
 	int address = this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]-1]= this->ram[address];
+	this->ram[this->ram[0]-1]= (short) this->ram[address];
 	this->pc++;
 }
 
@@ -181,8 +181,7 @@ screen_invertScreen(Vm *this){
 		this->ram[i]= ~this->ram[i];
 	}
 	this->currentcolor = ~this->currentcolor;
-	this->ram[this->ram[0]]= 0; //push 0 (void retrun value still needs to return a 0
-	this->ram[0]++; //SP++
+	this->ram[this->ram[0]-1]= 0; //push 0 (void retrun value still needs to return a 0
 	this->pc++;
 }
 
@@ -190,8 +189,7 @@ void
 screen_setColor(Vm *this){
 	if(DEBUG) printf("vm_execute_call(): Handling Screen.setColor\n");
 	this->currentcolor = (short) this->ram[this->ram[0]-1];
-	this->ram[this->ram[0]]= 0; //push 0 (void retrun value still needs to return a 0
-	this->ram[0]++; //SP++
+	this->ram[this->ram[0]-1]= 0; //push 0 (void retrun value still needs to return a 0
 	this->pc++;
 }
 
@@ -540,19 +538,8 @@ int
 check_os_function(Vm *this){
 	int handled = 0;
 
-	// Array.vm (note that this is mapped to Memory.alloc and Memory.deAlloc)
-	if(strcmp(this->label[this->pc], "Array.new") == 0){
-		memory_alloc(this);
-		handled++;
-	} else if(strcmp(this->label[this->pc], "Array.dispose") == 0){
-		memory_dealloc(this);
-		handled++;
-	}
 	// Math.vm
-	else if(strcmp(this->label[this->pc], "Math.init") == 0){
-		math_init(this);
-		handled++;
-	} else if(strcmp(this->label[this->pc], "Math.multiply") == 0){
+	if(strcmp(this->label[this->pc], "Math.multiply") == 0){
 		math_multiply(this);
 		handled++;
 	}else if(strcmp(this->label[this->pc], "Math.divide") == 0){
@@ -570,16 +557,19 @@ check_os_function(Vm *this){
 	}else if(strcmp(this->label[this->pc], "Math.abs") == 0){
 		math_abs(this);
 		handled++;
+	} else if(strcmp(this->label[this->pc], "Math.init") == 0){
+		math_init(this);
+		handled++;
 	}
-	
-	 
+
+ 
 	// Sys.vm
 	else if(strcmp(this->label[this->pc], "Sys.halt") == 0){
 		sys_halt(this);
 		handled++;
 	}
 
-	
+
 	// Screen.vm
 	else if(strcmp(this->label[this->pc], "Screen.init") == 0){
 		screen_init(this);
@@ -617,6 +607,7 @@ check_os_function(Vm *this){
 		screen_drawCircle(this);
 		handled++;
 	}
+
 	// Memory.vm
 	else if(strcmp(this->label[this->pc], "Memory.init") == 0){
 		memory_init(this);
@@ -636,6 +627,15 @@ check_os_function(Vm *this){
 	}
 	else if(strcmp(this->label[this->pc], "Memory.poke") == 0){
 		memory_poke(this);
+		handled++;
+	}
+
+	// Array.vm (note that this is mapped to Memory.alloc and Memory.deAlloc)
+	else if(strcmp(this->label[this->pc], "Array.new") == 0){
+		memory_alloc(this);
+		handled++;
+	} else if(strcmp(this->label[this->pc], "Array.dispose") == 0){
+		memory_dealloc(this);
 		handled++;
 	}
 

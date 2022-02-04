@@ -8,6 +8,161 @@
 #include <string.h>
 #include "vmemulib.h"
 
+// Output.vm
+
+void 
+create_char_map(short **map, int c, int line0, int line1, int line2, 
+	int line3, int line4, int line5,
+	int line6, int line7, int line8,
+   	int line9, int line10) {
+	map[c] = calloc(11, sizeof(short));
+        map[c][0] = line0;
+        map[c][1] = line1;
+        map[c][2] = line2;
+        map[c][3] = line3;
+        map[c][4] = line4;
+        map[c][5] = line5;
+        map[c][6] = line6;
+        map[c][7] = line7;
+        map[c][8] = line8;
+        map[c][9] = line9;
+        map[c][10] = line10;
+}
+
+void 
+init_charmap(Vm *this){
+	if(this->charmap != NULL){
+		printf("init_charmap(): charmap is not NULL\n");
+		return;
+	}
+	short **charmap;
+	charmap = calloc(127, sizeof(short*));
+
+        create_char_map(charmap, 0, 63, 63, 63, 63, 63, 63, 63, 63, 63, 0, 0);
+        create_char_map(charmap, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        create_char_map(charmap, 33, 12, 30, 30, 30, 12, 12, 0, 12, 12, 0, 0);
+        create_char_map(charmap, 34, 54, 54, 20, 0, 0, 0, 0, 0, 0, 0, 0);
+        create_char_map(charmap, 35, 0, 18, 18, 63, 18, 18, 63, 18, 18, 0, 0);
+        create_char_map(charmap, 36, 12, 30, 51, 3, 30, 48, 51, 30, 12, 12, 0);
+        create_char_map(charmap, 37, 0, 0, 35, 51, 24, 12, 6, 51, 49, 0, 0);
+        create_char_map(charmap, 38, 12, 30, 30, 12, 54, 27, 27, 27, 54, 0, 0);
+        create_char_map(charmap, 39, 12, 12, 6, 0, 0, 0, 0, 0, 0, 0, 0);
+        create_char_map(charmap, 40, 24, 12, 6, 6, 6, 6, 6, 12, 24, 0, 0);
+        create_char_map(charmap, 41, 6, 12, 24, 24, 24, 24, 24, 12, 6, 0, 0);
+        create_char_map(charmap, 42, 0, 0, 0, 51, 30, 63, 30, 51, 0, 0, 0);
+        create_char_map(charmap, 43, 0, 0, 0, 12, 12, 63, 12, 12, 0, 0, 0);
+        create_char_map(charmap, 44, 0, 0, 0, 0, 0, 0, 0, 12, 12, 6, 0);
+        create_char_map(charmap, 45, 0, 0, 0, 0, 0, 63, 0, 0, 0, 0, 0);
+        create_char_map(charmap, 46, 0, 0, 0, 0, 0, 0, 0, 12, 12, 0, 0);
+        create_char_map(charmap, 47, 0, 0, 32, 48, 24, 12, 6, 3, 1, 0, 0);
+        create_char_map(charmap, 48, 12, 30, 51, 51, 51, 51, 51, 30, 12, 0, 0);
+        create_char_map(charmap, 49, 12, 14, 15, 12, 12, 12, 12, 12, 63, 0, 0);
+        create_char_map(charmap, 50, 30, 51, 48, 24, 12, 6, 3, 51, 63, 0, 0);
+        create_char_map(charmap, 51, 30, 51, 48, 48, 28, 48, 48, 51, 30, 0, 0);
+        create_char_map(charmap, 52, 16, 24, 28, 26, 25, 63, 24, 24, 60, 0, 0);
+        create_char_map(charmap, 53, 63, 3, 3, 31, 48, 48, 48, 51, 30, 0, 0);
+        create_char_map(charmap, 54, 28, 6, 3, 3, 31, 51, 51, 51, 30, 0, 0);
+        create_char_map(charmap, 55, 63, 49, 48, 48, 24, 12, 12, 12, 12, 0, 0);
+        create_char_map(charmap, 56, 30, 51, 51, 51, 30, 51, 51, 51, 30, 0, 0);
+        create_char_map(charmap, 57, 30, 51, 51, 51, 62, 48, 48, 24, 14, 0, 0);
+        create_char_map(charmap, 58, 0, 0, 12, 12, 0, 0, 12, 12, 0, 0, 0);
+        create_char_map(charmap, 59, 0, 0, 12, 12, 0, 0, 12, 12, 6, 0, 0);
+        create_char_map(charmap, 60, 0, 0, 24, 12, 6, 3, 6, 12, 24, 0, 0);
+        create_char_map(charmap, 61, 0, 0, 0, 63, 0, 0, 63, 0, 0, 0, 0);
+        create_char_map(charmap, 62, 0, 0, 3, 6, 12, 24, 12, 6, 3, 0, 0);
+        create_char_map(charmap, 64, 30, 51, 51, 59, 59, 59, 27, 3, 30, 0, 0);
+        create_char_map(charmap, 63, 30, 51, 51, 24, 12, 12, 0, 12, 12, 0, 0);
+        create_char_map(charmap, 65, 12, 30, 51, 51, 63, 51, 51, 51, 51, 0, 0);
+        create_char_map(charmap, 66, 31, 51, 51, 51, 31, 51, 51, 51, 31, 0, 0);
+        create_char_map(charmap, 67, 28, 54, 35, 3, 3, 3, 35, 54, 28, 0, 0);
+        create_char_map(charmap, 68, 15, 27, 51, 51, 51, 51, 51, 27, 15, 0, 0);
+        create_char_map(charmap, 69, 63, 51, 35, 11, 15, 11, 35, 51, 63, 0, 0);
+        create_char_map(charmap, 70, 63, 51, 35, 11, 15, 11, 3, 3, 3, 0, 0);
+        create_char_map(charmap, 71, 28, 54, 35, 3, 59, 51, 51, 54, 44, 0, 0);
+        create_char_map(charmap, 72, 51, 51, 51, 51, 63, 51, 51, 51, 51, 0, 0);
+        create_char_map(charmap, 73, 30, 12, 12, 12, 12, 12, 12, 12, 30, 0, 0);
+        create_char_map(charmap, 74, 60, 24, 24, 24, 24, 24, 27, 27, 14, 0, 0);
+        create_char_map(charmap, 75, 51, 51, 51, 27, 15, 27, 51, 51, 51, 0, 0);
+        create_char_map(charmap, 76, 3, 3, 3, 3, 3, 3, 35, 51, 63, 0, 0);
+        create_char_map(charmap, 77, 33, 51, 63, 63, 51, 51, 51, 51, 51, 0, 0);
+        create_char_map(charmap, 78, 51, 51, 55, 55, 63, 59, 59, 51, 51, 0, 0);
+        create_char_map(charmap, 79, 30, 51, 51, 51, 51, 51, 51, 51, 30, 0, 0);
+        create_char_map(charmap, 80, 31, 51, 51, 51, 31, 3, 3, 3, 3, 0, 0);
+        create_char_map(charmap, 81, 30, 51, 51, 51, 51, 51, 63, 59, 30, 48, 0);
+        create_char_map(charmap, 82, 31, 51, 51, 51, 31, 27, 51, 51, 51, 0, 0);
+        create_char_map(charmap, 83, 30, 51, 51, 6, 28, 48, 51, 51, 30, 0, 0);
+        create_char_map(charmap, 84, 63, 63, 45, 12, 12, 12, 12, 12, 30, 0, 0);
+        create_char_map(charmap, 85, 51, 51, 51, 51, 51, 51, 51, 51, 30, 0, 0);
+        create_char_map(charmap, 86, 51, 51, 51, 51, 51, 30, 30, 12, 12, 0, 0);
+        create_char_map(charmap, 87, 51, 51, 51, 51, 51, 63, 63, 63, 18, 0, 0);
+        create_char_map(charmap, 88, 51, 51, 30, 30, 12, 30, 30, 51, 51, 0, 0);
+        create_char_map(charmap, 89, 51, 51, 51, 51, 30, 12, 12, 12, 30, 0, 0);
+        create_char_map(charmap, 90, 63, 51, 49, 24, 12, 6, 35, 51, 63, 0, 0);
+        create_char_map(charmap, 91, 30, 6, 6, 6, 6, 6, 6, 6, 30, 0, 0);
+        create_char_map(charmap, 92, 0, 0, 1, 3, 6, 12, 24, 48, 32, 0, 0);
+        create_char_map(charmap, 93, 30, 24, 24, 24, 24, 24, 24, 24, 30, 0, 0);
+        create_char_map(charmap, 94, 8, 28, 54, 0, 0, 0, 0, 0, 0, 0, 0);
+        create_char_map(charmap, 95, 0, 0, 0, 0, 0, 0, 0, 0, 0, 63, 0);
+        create_char_map(charmap, 96, 6, 12, 24, 0, 0, 0, 0, 0, 0, 0, 0);
+        create_char_map(charmap, 97, 0, 0, 0, 14, 24, 30, 27, 27, 54, 0, 0);
+        create_char_map(charmap, 98, 3, 3, 3, 15, 27, 51, 51, 51, 30, 0, 0);
+        create_char_map(charmap, 99, 0, 0, 0, 30, 51, 3, 3, 51, 30, 0, 0);
+        create_char_map(charmap, 100, 48, 48, 48, 60, 54, 51, 51, 51, 30, 0, 0);
+        create_char_map(charmap, 101, 0, 0, 0, 30, 51, 63, 3, 51, 30, 0, 0);
+        create_char_map(charmap, 102, 28, 54, 38, 6, 15, 6, 6, 6, 15, 0, 0);
+        create_char_map(charmap, 103, 0, 0, 30, 51, 51, 51, 62, 48, 51, 30, 0);
+        create_char_map(charmap, 104, 3, 3, 3, 27, 55, 51, 51, 51, 51, 0, 0);
+        create_char_map(charmap, 105, 12, 12, 0, 14, 12, 12, 12, 12, 30, 0, 0);
+        create_char_map(charmap, 106, 48, 48, 0, 56, 48, 48, 48, 48, 51, 30, 0);
+        create_char_map(charmap, 107, 3, 3, 3, 51, 27, 15, 15, 27, 51, 0, 0);
+        create_char_map(charmap, 108, 14, 12, 12, 12, 12, 12, 12, 12, 30, 0, 0);
+        create_char_map(charmap, 109, 0, 0, 0, 29, 63, 43, 43, 43, 43, 0, 0);
+        create_char_map(charmap, 110, 0, 0, 0, 29, 51, 51, 51, 51, 51, 0, 0);
+        create_char_map(charmap, 111, 0, 0, 0, 30, 51, 51, 51, 51, 30, 0, 0);
+        create_char_map(charmap, 112, 0, 0, 0, 30, 51, 51, 51, 31, 3, 3, 0);
+        create_char_map(charmap, 113, 0, 0, 0, 30, 51, 51, 51, 62, 48, 48, 0);
+        create_char_map(charmap, 114, 0, 0, 0, 29, 55, 51, 3, 3, 7, 0, 0);
+        create_char_map(charmap, 115, 0, 0, 0, 30, 51, 6, 24, 51, 30, 0, 0);
+        create_char_map(charmap, 116, 4, 6, 6, 15, 6, 6, 6, 54, 28, 0, 0);
+        create_char_map(charmap, 117, 0, 0, 0, 27, 27, 27, 27, 27, 54, 0, 0);
+        create_char_map(charmap, 118, 0, 0, 0, 51, 51, 51, 51, 30, 12, 0, 0);
+        create_char_map(charmap, 119, 0, 0, 0, 51, 51, 51, 63, 63, 18, 0, 0);
+        create_char_map(charmap, 120, 0, 0, 0, 51, 30, 12, 12, 30, 51, 0, 0);
+        create_char_map(charmap, 121, 0, 0, 0, 51, 51, 51, 62, 48, 24, 15, 0);
+        create_char_map(charmap, 122, 0, 0, 0, 63, 27, 12, 6, 51, 63, 0, 0);
+        create_char_map(charmap, 123, 56, 12, 12, 12, 7, 12, 12, 12, 56, 0, 0);
+        create_char_map(charmap, 124, 12, 12, 12, 12, 12, 12, 12, 12, 12, 0, 0);
+        create_char_map(charmap, 125, 7, 12, 12, 12, 56, 12, 12, 12, 7, 0, 0);
+        create_char_map(charmap, 126, 38, 45, 25, 0, 0, 0, 0, 0, 0, 0, 0);
+
+	this->charmap = charmap;
+	return;
+	//int j, i;
+	//for(j=0;j<127;j++){
+	//	for(i=0;i<11;i++){
+	//		if(&charmap[j][i]==NULL) break;
+	//		printf("map[%d][%d] %p %d\n", j, i, &charmap[j][i], charmap[j][i]);
+	//	}
+	//}
+}
+
+void
+output_init(Vm *this){
+	if(DEBUG) printf("vm_execute_call(): Handling Output.init\n");
+	this->pc++; //just do nothing, we simply don't need to set anything up. All OS Math functions handled internally.
+
+//	init_charmap(this);
+//	int j, i;
+//	short **charmap;
+//	charmap = this->charmap;
+//	for(j=0;j<127;j++){
+//		for(i=0;i<11;i++){
+//			if(&charmap[j][i]==NULL) break;
+//			printf("map[%d][%d] %p %d\n", j, i, (void *) &charmap[j][i], charmap[j][i]);
+//		}
+//	}
+}
+
 // Array.vm
 // can simply be mapped to Memory.alloc and Memory.deAlloc I just realized. Who would have thought!
 
@@ -181,7 +336,8 @@ screen_invertScreen(Vm *this){
 		this->ram[i]= ~this->ram[i];
 	}
 	this->currentcolor = ~this->currentcolor;
-	this->ram[this->ram[0]-1]= 0; //push 0 (void retrun value still needs to return a 0
+	this->ram[this->ram[0]]= 0; //push 0 (void retrun value still needs to return a 0
+	this->ram[0]++; //SP++
 	this->pc++;
 }
 
@@ -222,9 +378,9 @@ screen_drawLine(Vm *this){
 	short y2 = (short) this->ram[this->ram[0]-1];
 
 	this->ram[this->ram[0]-4]= 0; //push 0 (void return value still needs to return a 0
+	this->ram[0]--; //SP--
 	this->ram[0]--;
 	this->ram[0]--;
-	this->ram[0]--; //SP++
 	this->pc++;
 	//Always draw from left to right (increasing x), i.e. swap if x2<x1
 	if(x2<x1){//swap
@@ -560,11 +716,11 @@ check_os_function(Vm *this){
 	} else if(strcmp(this->label[this->pc], "Math.init") == 0){
 		math_init(this);
 		handled++;
-	}
+	} else
 
- 
+
 	// Sys.vm
-	else if(strcmp(this->label[this->pc], "Sys.halt") == 0){
+	if(strcmp(this->label[this->pc], "Sys.halt") == 0){
 		sys_halt(this);
 		handled++;
 	}

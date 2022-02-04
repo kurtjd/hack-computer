@@ -69,6 +69,7 @@ void vm_init(Vm *this)
     this->ram[KEYBD_ADDR] = 0;
     this->instructioncounter = 0;
     this->quitflag = 0;
+    this->charmap = NULL;
 }
 
 void vm_init_statics(Vm *this, int nfiles)

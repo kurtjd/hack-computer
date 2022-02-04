@@ -3,7 +3,7 @@
 //Context: nand2tetris
 
 #define DEBUG 0
-#define OVERRIDE_OS_FUNCTIONS 1
+#define OVERRIDE_OS_FUNCTIONS 0
 
 #ifndef EMULIB_H
 #define EMULIB_H
@@ -118,6 +118,9 @@ typedef struct Vm
 
     //Memory.vm persistence
     int32_t *freelist;
+
+    //Output.vm character map
+    short **charmap;
 
 } Vm;
 

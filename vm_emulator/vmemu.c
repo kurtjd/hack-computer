@@ -15,7 +15,7 @@
 
 #define TITLE "VM Emulator"
 #define FRAME_RATE 25
-#define CPU_FREQ 100
+#define CPU_FREQ 300
 #define OFF_COLOR 0xFFFFFF
 #define ON_COLOR 0x000000
 
@@ -106,7 +106,7 @@ void draw_display(const Vm *machine, SDL_Window *window, SDL_Surface *surface)
 // Returns the proper key for the emulator to handle
 int get_key(SDL_KeyCode key)
 {
-    //printf("get_key(): keycode is %d\n", key);
+    printf("get_key(): keycode is %d\n", key);
     if (key >= SDLK_F1 && key <= SDLK_F12)
     {
         return HACK_KEY_F + (key - SDLK_F1);
@@ -118,6 +118,8 @@ int get_key(SDL_KeyCode key)
     {
         return (key-32); //-> A..Z
     }
+    if (key == 13) return 128; //Enter key
+//    if (key == 8) return 129; //Backspace key
 
     switch (key)
     {
